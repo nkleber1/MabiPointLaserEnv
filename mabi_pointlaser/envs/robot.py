@@ -6,7 +6,7 @@ from math import pi, sqrt
 MAX_DISTANCE = 100
 
 
-class RobotWrapper:
+class Robot:
     """
     Base class for mujoco .xml based agents.
     """
