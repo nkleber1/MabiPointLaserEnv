@@ -11,7 +11,8 @@ class Robot:
     Base class for mujoco .xml based agents.
     """
 
-    def __init__(self, bullet_client, add_ignored_joints=False, base_position=None, base_orientation=None, fixed_base=1):
+    def __init__(self, bullet_client, add_ignored_joints=False, base_position=None, base_orientation=None,
+                 fixed_base=1):
         self._p = bullet_client
 
         #  Not needed?
@@ -96,6 +97,11 @@ class Robot:
         self.laser_y = self.jdict["laser_y"]
         self.laser_z = self.jdict["laser_z"]
 
+        self.endEffectorPosition = None
+        self.endEffectorOrientation = None
+        self.joint_states = None
+        self.endEffectorTargetOrientation = None
+
         self.flex_joints = [self.shoulder_rot_joint.ID, self.shoulder_fle_joint.ID, self.elbow_fle_joint.ID,
                             self.elbow_rot_joint.ID, self.wrist_fle_joint.ID, self.wrist_rot_joint.ID]
 
@@ -106,13 +112,13 @@ class Robot:
         self.endEffectorTargetPosition = end_effector_position if end_effector_position is not None else [1, 0, 1]
         o = end_effector_orientation if end_effector_orientation is not None else [0, 0, 0]
         self.endEffectorTargetOrientation = self._p.getQuaternionFromEuler([o[0], o[1], o[2]])
-        target_position_joints = self._p.calculateInverseKinematics(self.robotID, self.end.ID,
-                                                                    targetOrientation=self.endEffectorTargetOrientation,
-                                                                    targetPosition=self.endEffectorTargetPosition,
-                                                                    residualThreshold=0.0000001, maxNumIterations=1000)
+        self.joint_states = self._p.calculateInverseKinematics(self.robotID, self.end.ID,
+                                                               targetOrientation=self.endEffectorTargetOrientation,
+                                                               targetPosition=self.endEffectorTargetPosition,
+                                                               residualThreshold=0.0000001, maxNumIterations=1000)
 
         pybullet.setJointMotorControlArray(self.robotID, self.flex_joints, pybullet.POSITION_CONTROL,
-                                           targetPositions=target_position_joints)
+                                           targetPositions=self.joint_states)
 
         # get observation
         s = self.get_state()  # optimization: calc_state() can calculate something in self.* for calc_potential() to use
@@ -122,25 +128,25 @@ class Robot:
     def apply_action(self, a):
         assert (np.isfinite(a).all())
         self.endEffectorTargetOrientation = self._p.getQuaternionFromEuler([a[0], a[1], a[2]])
-        target_position_joints = self._p.calculateInverseKinematics(self.robotID, self.end.ID,
-                                                                    targetOrientation=self.endEffectorTargetOrientation,
-                                                                    targetPosition=self.endEffectorTargetPosition,
-                                                                    residualThreshold=0.000001,
-                                                                    maxNumIterations=1000000)
+        self.joint_states = self._p.calculateInverseKinematics(self.robotID, self.end.ID,
+                                                               targetOrientation=self.endEffectorTargetOrientation,
+                                                               targetPosition=self.endEffectorTargetPosition,
+                                                               residualThreshold=0.000001,
+                                                               maxNumIterations=1000000)
         pybullet.setJointMotorControlArray(self.robotID, self.flex_joints, pybullet.POSITION_CONTROL,
-                                           targetPositions=target_position_joints)
-
-
-        measure_successful = self.sensor.measure_successful()
-        self.endEffectorPosition = self.end.get_position()
-        self.endEffectorOrientation = self.end.get_orientation()
-
-        return self.endEffectorPosition, self.endEffectorOrientation, measure_successful
+                                           targetPositions=self.joint_states)
         # TODO Deal with not equal config
 
     def get_state(self):
-        real_end_effector_position = self._p.getLinkState(self.robotID, self.end.ID)[0]
-        return real_end_effector_position
+        end_effector_pos = self.transmitter.get_position()
+        end_effector_orientation = self._p.getEulerFromQuaternion(self.end.get_orientation())
+        measure_successful = self.sensor.measure_successful()
+        target = np.array(self.endEffectorTargetPosition)
+        mse = ((end_effector_pos - target) ** 2).mean()
+        pos_correct = False
+        if mse < 0.02:
+            pos_correct = True
+        return pos_correct, end_effector_orientation, measure_successful, self.joint_states
 
     def get_obs(self):
         # print(self.sensor.measure_successful())
@@ -159,10 +165,10 @@ class BodyPart:
         return [position, orientation]
 
     def get_position(self):
-        return self.get_pose()[0]
+        return np.array(self.get_pose()[0])
 
     def get_orientation(self):
-        return self.get_pose()[1]
+        return np.array(self.get_pose()[1])
 
 
 class Joint:

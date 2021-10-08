@@ -1,13 +1,10 @@
 import gym, gym.spaces, gym.utils, gym.utils.seeding
-import numpy as np
 import pybullet
 import pybullet_data
 import time
-import random
-import sys
 # from vtk_env.pointlaser_env import PointlaserEnv
 from pybullet_utils import bullet_client
-from mabi_pointlaser.envs.robot import Robot
+from mabi_pointlaser.resources.robot import Robot
 from math import pi
 
 
@@ -101,7 +98,7 @@ class BulletEnv(gym.Env):
         self.robot.apply_action(a)
         self.step_simulation()
 
-        self.robot.get_state()  # TODO Define!
+        state = self.robot.get_state()
 
         # obs = self.robot.get_observation()  # sets self.to_target_vec # TODO use robot observation
         obs = None
@@ -122,7 +119,7 @@ x = env._p.addUserDebugParameter("x", -pi, pi, 0)
 y = env._p.addUserDebugParameter("y", -pi, pi, 0)
 z = env._p.addUserDebugParameter("z", -pi, pi, 0)
 while True:
-    for _ in range(10):
+    for _ in range(100):
         x1 = env._p.readUserDebugParameter(x)
         y1 = env._p.readUserDebugParameter(y)
         z1 = env._p.readUserDebugParameter(z)
@@ -130,5 +127,4 @@ while True:
         # env.step([x1, y1, z1])
         env.step([1, 1, 1])
         # print('\r', env.robot.get_obs(), end='', flush=True)
-    print('reset')
     env.reset()
