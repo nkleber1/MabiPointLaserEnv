@@ -5,7 +5,7 @@ import pybullet_data
 import time
 import random
 import sys
-#from vtk_env.pointlaser_env import PointlaserEnv
+# from vtk_env.pointlaser_env import PointlaserEnv
 from pybullet_utils import bullet_client
 from mabi_pointlaser.envs.robot import RobotWrapper
 from math import pi
@@ -17,11 +17,17 @@ class BulletEnv(gym.Env):
 	These environments create single-player scenes and behave like normal Gym environments, if
 	you don't use multiplayer.
 	"""
+
     def __init__(self, render=True):
         # Load all Elements
         self.physicsClientId = -1
-        self.robot = RobotWrapper()
-        self.seed()
+        self._p = None
+
+        self.np_random = None
+
+        self.frame = 0
+        self.done = 0
+        self.reward = 0
 
         # Camera Parameter and Render  # TODO What is meant? Observation or GUI?
         self.camera = Camera()
@@ -32,15 +38,12 @@ class BulletEnv(gym.Env):
         self._render_width = 320
         self._render_height = 240
 
+        self.setup_client()
+        self.robot = RobotWrapper(self._p)
+        self.seed()
+
         self.action_space = self.robot.action_space
         self.observation_space = self.robot.observation_space
-
-        self._p = None
-        self.np_random = None
-
-        self.frame = 0
-        self.done = 0
-        self.reward = 0
 
     # do robots have args?
     # def configure(self, args):
@@ -51,34 +54,36 @@ class BulletEnv(gym.Env):
         self.robot.np_random = self.np_random  # use the same np_randomizer for robot as for env
         return [seed]
 
-    def reset(self):
+    def setup_client(self):
         timestep = 0.0020  # TODO Move to config.
         frame_skip = 5
         num_solver_iterations = 5
 
+        if self.isRender:
+            self._p = bullet_client.BulletClient(connection_mode=pybullet.GUI)
+        else:
+            self._p = bullet_client.BulletClient()
+        self.physicsClientId = self._p._client
+        self._p.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)  # TODO What happens here?
+        self._p.setAdditionalSearchPath(pybullet_data.getDataPath())
+        self._p.setGravity(0, 0, -9.81)
+        self._p.loadURDF("plane.urdf")
+        self._p.setDefaultContactERP(0.9)  # TODO What is setDefaultContactERP
+        # TODO What is setPhysicsEngineParameter
+        self._p.setPhysicsEngineParameter(fixedTimeStep=timestep * frame_skip,
+                                          numSolverIterations=num_solver_iterations, numSubSteps=frame_skip)
+
+    def reset(self):
         # Connect to Bullet-Client (if no client is connected)
         if self.physicsClientId < 0:
-            if self.isRender:
-                self._p = bullet_client.BulletClient(connection_mode=pybullet.GUI)
-            else:
-                self._p = bullet_client.BulletClient()
-
-            self.physicsClientId = self._p._client
-            self._p.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)  # TODO What happens here?
-            self._p.setAdditionalSearchPath(pybullet_data.getDataPath())
-
-            self._p.setGravity(0, 0, -9.81)
-            self._p.loadURDF("plane.urdf")
-            self._p.setDefaultContactERP(0.9)  # TODO What is setDefaultContactERP
-            # TODO What is setPhysicsEngineParameter
-            self._p.setPhysicsEngineParameter(fixedTimeStep=timestep * frame_skip,
-                                              numSolverIterations=num_solver_iterations, numSubSteps=frame_skip)
+            self.setup_client()
 
         self.frame = 0
         self.done = 0
         self.reward = 0
 
-        s = self.robot.reset(self._p)  # TODO whats s and what is it good for? --> it is a state / obs
+        s = self.robot.reset()  # TODO whats s and what is it good for? --> it is a state / obs
+        self.step_simulation()
         return s
 
     def render(self, mode="human"):
@@ -88,7 +93,6 @@ class BulletEnv(gym.Env):
         # Ignore rgb_array for now
         if mode != "rgb_array":
             return np.array([])
-
 
         base_pos = [0, 0, 0]
         if hasattr(self, 'robot'):
@@ -159,17 +163,16 @@ class BulletEnv(gym.Env):
         # TODO check if done
         return False
 
-    def step(self, a, *args, **kwargs):
-        t_steps = 100  # TODO move to config
-        sleep = 0
-
-        self.robot.apply_action(a)
-
+    def step_simulation(self, t_steps=100, sleep=0):
         for _ in range(t_steps):
             self._p.stepSimulation()
             time.sleep(sleep)
 
-        self.robot.get_state() # TODO Define!
+    def step(self, a, *args, **kwargs):
+        self.robot.apply_action(a)
+        self.step_simulation()
+
+        self.robot.get_state()  # TODO Define!
 
         # obs = self.robot.get_observation()  # sets self.to_target_vec # TODO use robot observation
         obs = None
@@ -194,8 +197,6 @@ class BulletEnv(gym.Env):
         self.camera.move_and_look_at(0.3, 0.3, 0.3, x, y, z)
 
 
-
-
 class Camera:
     def __init__(self):
         pass
@@ -212,7 +213,7 @@ env.reset()
 action = env.action_space.sample()
 env.step(action)
 x = env._p.addUserDebugParameter("x", -pi, pi, 0)
-y =env._p.addUserDebugParameter("y", -pi, pi, 0)
+y = env._p.addUserDebugParameter("y", -pi, pi, 0)
 z = env._p.addUserDebugParameter("z", -pi, pi, 0)
 while True:
     for _ in range(10):
@@ -222,6 +223,6 @@ while True:
         action = env.action_space.sample()
         # env.step([x1, y1, z1])
         env.step([1, 1, 1])
-        #print('\r', env.robot.get_obs(), end='', flush=True)
+        # print('\r', env.robot.get_obs(), end='', flush=True)
     print('reset')
     env.reset()
