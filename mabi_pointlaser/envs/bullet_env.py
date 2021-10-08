@@ -1,13 +1,13 @@
 import gym, gym.spaces, gym.utils, gym.utils.seeding
 import numpy as np
 import pybullet
+import pybullet_data
 import time
 import random
 import sys
 #from vtk_env.pointlaser_env import PointlaserEnv
 from pybullet_utils import bullet_client
 from mabi_pointlaser.envs.robot import RobotWrapper
-from mabi_pointlaser.envs.scene import Scene
 from math import pi
 
 
@@ -19,7 +19,6 @@ class BulletEnv(gym.Env):
 	"""
     def __init__(self, render=True):
         # Load all Elements
-        self.scene = None
         self.physicsClientId = -1
         self.robot = RobotWrapper()
         self.seed()
@@ -39,6 +38,10 @@ class BulletEnv(gym.Env):
         self._p = None
         self.np_random = None
 
+        self.frame = 0
+        self.done = 0
+        self.reward = 0
+
     # do robots have args?
     # def configure(self, args):
     #     self.robot.args = args
@@ -49,6 +52,10 @@ class BulletEnv(gym.Env):
         return [seed]
 
     def reset(self):
+        timestep = 0.0020  # TODO Move to config.
+        frame_skip = 5
+        num_solver_iterations = 5
+
         # Connect to Bullet-Client (if no client is connected)
         if self.physicsClientId < 0:
             if self.isRender:
@@ -58,21 +65,20 @@ class BulletEnv(gym.Env):
 
             self.physicsClientId = self._p._client
             self._p.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)  # TODO What happens here?
+            self._p.setAdditionalSearchPath(pybullet_data.getDataPath())
 
-        # Load Scene
-        if self.scene is None:
-            self.scene = Scene(self._p, timestep=0.0020, frame_skip=5)
-        if self.physicsClientId >= 0:
-            self.scene.episode_restart(self._p)
-
-        self.robot.scene = self.scene  # TODO Why does a robot need a scene?
+            self._p.setGravity(0, 0, -9.81)
+            self._p.loadURDF("plane.urdf")
+            self._p.setDefaultContactERP(0.9)  # TODO What is setDefaultContactERP
+            # TODO What is setPhysicsEngineParameter
+            self._p.setPhysicsEngineParameter(fixedTimeStep=timestep * frame_skip,
+                                              numSolverIterations=num_solver_iterations, numSubSteps=frame_skip)
 
         self.frame = 0
         self.done = 0
         self.reward = 0
-        dump = 0
+
         s = self.robot.reset(self._p)  # TODO whats s and what is it good for? --> it is a state / obs
-        # self.potential = self.robot.calc_potential()  # TODO What is potential and what is it good for?
         return s
 
     def render(self, mode="human"):
@@ -154,10 +160,16 @@ class BulletEnv(gym.Env):
         return False
 
     def step(self, a, *args, **kwargs):
-        endEffectorPosition, endEffectorOrientation, measure_successful = self.robot.apply_action(a)
+        t_steps = 100  # TODO move to config
+        sleep = 0
 
-        self.scene.global_step() # TODO use Scene
-        self.robot.get_state()
+        self.robot.apply_action(a)
+
+        for _ in range(t_steps):
+            self._p.stepSimulation()
+            time.sleep(sleep)
+
+        self.robot.get_state() # TODO Define!
 
         # obs = self.robot.get_observation()  # sets self.to_target_vec # TODO use robot observation
         obs = None
@@ -203,10 +215,13 @@ x = env._p.addUserDebugParameter("x", -pi, pi, 0)
 y =env._p.addUserDebugParameter("y", -pi, pi, 0)
 z = env._p.addUserDebugParameter("z", -pi, pi, 0)
 while True:
-    x1 = env._p.readUserDebugParameter(x)
-    y1 = env._p.readUserDebugParameter(y)
-    z1 = env._p.readUserDebugParameter(z)
-    action = env.action_space.sample()
-    env.step([x1, y1, z1])
-    print(env.robot.get_obs())
-    print('\r', env.robot.get_obs(), end='', flush=True)
+    for _ in range(10):
+        x1 = env._p.readUserDebugParameter(x)
+        y1 = env._p.readUserDebugParameter(y)
+        z1 = env._p.readUserDebugParameter(z)
+        action = env.action_space.sample()
+        # env.step([x1, y1, z1])
+        env.step([1, 1, 1])
+        #print('\r', env.robot.get_obs(), end='', flush=True)
+    print('reset')
+    env.reset()
