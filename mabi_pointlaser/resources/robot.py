@@ -148,10 +148,6 @@ class Robot:
             pos_correct = True
         return pos_correct, end_effector_orientation, measure_successful, self.joint_states
 
-    def get_obs(self):
-        # print(self.sensor.measure_successful())
-        return self.sensor.measure()
-
 
 class BodyPart:
     def __init__(self, bullet_client, body_name, robot_id, body_part_id):  # TODO why is body_name needed?
