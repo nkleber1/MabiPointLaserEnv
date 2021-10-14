@@ -109,7 +109,7 @@ class Robot:
             self.setup_client()
 
         # move end_effector to target
-        self.target_pos = pos if pos is not None else [1, 0, 1]
+        self.target_pos = pos if pos is not None else [0.7, 0, 1.3]
         q = q if q is not None else [0, 0, 0]
         self.eef_to_target(q)
         return self.get_state()
@@ -130,13 +130,12 @@ class Robot:
         :param q: orientation in normalise euler angels 3*[-1, 1]
         '''
         euler = q * EULER_RANGE
-        print(euler[1])
         self.target_q = self._p.getQuaternionFromEuler([euler[0], euler[1], euler[2]])
         self.joint_states = self._p.calculateInverseKinematics(self.robotID, self.transmitter.ID,
                                                                targetOrientation=self.target_q,
                                                                targetPosition=self.target_pos,
-                                                               residualThreshold=0.000001,
-                                                               maxNumIterations=1000000)
+                                                               residualThreshold=0.001,
+                                                               maxNumIterations=100000)
         pybullet.setJointMotorControlArray(self.robotID, self.flex_joints, pybullet.POSITION_CONTROL,
                                            targetPositions=self.joint_states)
         self.step_simulation()
@@ -154,7 +153,7 @@ class Robot:
         # kept position
         t = self.target_pos
         c = self.transmitter.get_position()
-        dev = sqrt((t[0] - c[0])**2 + (t[1] - c[0])**2 + (t[2] - c[0])**2)
+        dev = sqrt((t[0] - c[0])**2 + (t[1] - c[1])**2 + (t[2] - c[2])**2)
         pos_correct = False
         if dev < 0.05:
             pos_correct = True
@@ -174,7 +173,7 @@ class Robot:
 
     def sample_pose(self):
         # TODO actually sample
-        pos = [1, 0, 1]
+        pos = [0.7, 0, 1.3]
         q = [0, 0, 0]
         return {'x': pos, 'q': q}
 
@@ -204,6 +203,17 @@ class Robot:
             if self.physicsClientId >= 0:
                 self._p.disconnect()
         self.physicsClientId = -1
+
+    def add_debug_parameter(self):
+        self.x = self._p.addUserDebugParameter("x", -1, 1, 0)
+        self.y = self._p.addUserDebugParameter("y", -1, 1, 0)
+        self.z = self._p.addUserDebugParameter("z", -1, 1, 0)
+
+    def get_debug_parameter(self):
+        x = self._p.readUserDebugParameter(self.x)
+        y = self._p.readUserDebugParameter(self.y)
+        z = self._p.readUserDebugParameter(self.z)
+        return x, y, z
 
 
 class BodyPart:

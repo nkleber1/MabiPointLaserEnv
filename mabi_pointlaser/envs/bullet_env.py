@@ -84,15 +84,9 @@ class BulletEnv(gym.Env):
 
 env = BulletEnv()
 env.reset()
-action = env.action_space.sample()
-env.step(action)
-x = env._p.addUserDebugParameter("x", -1, 1, 0)
-y = env._p.addUserDebugParameter("y", -1, 1, 0)
-z = env._p.addUserDebugParameter("z", -1, 1, 0)
+env.robot.add_debug_parameter()
+
 while True:
-    x1 = env._p.readUserDebugParameter(x)
-    y1 = env._p.readUserDebugParameter(y)
-    z1 = env._p.readUserDebugParameter(z)
-    action = env.action_space.sample()
-    env.step([x1, y1, z1])
-    # print(env.robot.sensor.measure())
+    x, y, z = env.robot.get_debug_parameter()
+    env.step([x, y, z])
+
