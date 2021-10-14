@@ -4,7 +4,6 @@ import gym
 import gym.spaces
 import gym.utils
 import numpy as np
-import pybullet
 from math import sqrt
 import pybullet
 import pybullet_data
@@ -18,13 +17,13 @@ class Robot:
     """
     Base class for mujoco .xml based agents.
     """
-    def __init__(self, args, render=True):
+    def __init__(self, args):
         self.args = args
 
         # init bullet client
         self.physicsClientId = -1
         self._p = None
-        self.isRender = render  # TODO move to args
+        self.isRender = args.renderRobot
         self.setup_client()
 
         # Define action space
