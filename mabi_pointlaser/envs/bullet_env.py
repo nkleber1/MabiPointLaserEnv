@@ -1,11 +1,10 @@
 import gym, gym.spaces, gym.utils, gym.utils.seeding
 import pybullet
 import pybullet_data
-import time
-# from vtk_env.pointlaser_env import PointlaserEnv
+from vtk_pointlaser.config import Config
+from vtk_pointlaser import RandomizedPointlaserEnv
 from pybullet_utils import bullet_client
 from mabi_pointlaser.resources.robot import Robot
-from math import pi
 
 
 class BulletEnv(gym.Env):
@@ -14,117 +13,118 @@ class BulletEnv(gym.Env):
 	These environments create single-player scenes and behave like normal Gym environments, if
 	you don't use multiplayer.
 	"""
-
     def __init__(self, render=True):
-        # Load all Elements
+        # get args
+        self.args = Config().get_arguments()
+
+        # init bullet
         self.physicsClientId = -1
         self._p = None
-
-        self.np_random = None
-
-        self.frame = 0
-        self.done = 0
-        self.reward = 0
-
         self.isRender = render
         self.setup_client()
+
+        # make robot
         self.robot = Robot(self._p)
-        self.seed()
-
         self.action_space = self.robot.action_space
-        self.observation_space = self.robot.observation_space
 
-    # do robots have args?
-    # def configure(self, args):
-    #     self.robot.args = args
+        # make vtk
+        self.vtk_env = RandomizedPointlaserEnv(self.args)
+        self.observation_space = self.vtk_env.observation_space
+
+        # same seed for robot, bullet_env and vtk_env
+        self.np_random = None
+        self.seed(self.args.seed)
+
+        # episode history
+        self.episode_steps = 0
+        self.episode_reward = 0
 
     def seed(self, seed=None):
+        '''
+        Set random seed for BulletEnv and MabiRobot
+        '''
         self.np_random, seed = gym.utils.seeding.np_random(seed)
-        self.robot.np_random = self.np_random  # use the same np_randomizer for robot as for env
+        self.robot.np_random = self.np_random
+        self.vtk_env.np_random = self.np_random
         return [seed]
 
     def setup_client(self):
-        time_step = 0.0020  # TODO Move to config.
-        frame_skip = 5
-        num_solver_iterations = 5
-
+        '''
+        Set up BulletClient, Gravity, Plane  and setts PhysicsEngineParameter and debugging features.
+        '''
         if self.isRender:
             self._p = bullet_client.BulletClient(connection_mode=pybullet.GUI)
         else:
             self._p = bullet_client.BulletClient()
         self.physicsClientId = self._p._client
-        self._p.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)  # TODO What happens here?
+        self._p.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)
         self._p.setAdditionalSearchPath(pybullet_data.getDataPath())
         self._p.setGravity(0, 0, -9.81)
         self._p.loadURDF("plane.urdf")
-        self._p.setDefaultContactERP(0.9)  # TODO What is setDefaultContactERP
-        # TODO What is setPhysicsEngineParameter
-        self._p.setPhysicsEngineParameter(fixedTimeStep=time_step * frame_skip,
-                                          numSolverIterations=num_solver_iterations, numSubSteps=frame_skip)
+        self._p.setDefaultContactERP(0.9)
+        self._p.setPhysicsEngineParameter(fixedTimeStep=self.args.time_step * self.args.frame_skip,
+                                          numSolverIterations=self.args.num_solver_iterations,
+                                          numSubSteps=self.args.frame_skip)
 
     def reset(self):
+        '''
+        Starts a new episode, withe random robot pose.
+        :return: first obs (by vtk env)
+        '''
+
         # Connect to Bullet-Client (if no client is connected)
         if self.physicsClientId < 0:
             self.setup_client()
 
-        self.frame = 0
-        self.done = 0
-        self.reward = 0
+        # Set Episode info to zero
+        self.episode_steps = 0
+        self.episode_reward = 0
 
-        s = self.robot.reset()  # TODO whats s and what is it good for? --> it is a state / obs
-        self.step_simulation()
-        return s
+        # sample new robot pose and apply if possible.
+        while True:
+            pose = self.robot.sample_pose()
+            correct, q, joint_states = self.robot.reset(pose['x'], pose['q'])
+
+            if correct:
+                obs = self.vtk_env.reset(pose['x'][2], q)
+                return obs
 
     def close(self):
+        '''
+        Disconnect client
+        '''
         if self.physicsClientId >= 0:
             if self.physicsClientId >= 0:
                 self._p.disconnect()
         self.physicsClientId = -1
 
-    # TODO change reward function (!)
-    def get_reward(self):
-        pass
+    def step(self, a):
+        '''
+        Perform a new step. (1) Check if action is possible under robot dynamics. (2) If, so hand action over to vtk_env
+        :param a: action 3*[-1, 1] (new orientation in normed euler angels)
+        :return: obs, reward, done, info by vtk_env (or punishment if action is impossible)
+        '''
+        self.episode_steps += 1
+        correct, q, joint_states = self.robot.apply_action(a)
+        if not correct:
+            return None, self.args.incorrect_pose_punishment, True, {}
 
-    # TODO change done function (!)
-    def is_doen(self):
-        pass
-
-    def step_simulation(self, t_steps=100, sleep=0):
-        for _ in range(t_steps):
-            self._p.stepSimulation()
-            time.sleep(sleep)
-
-    def step(self, a, *args, **kwargs):
-        self.robot.apply_action(a)
-        self.step_simulation()
-
-        state = self.robot.get_state()
-
-        # obs = self.robot.get_observation()  # sets self.to_target_vec # TODO use robot observation
-        obs = None
-
-        # reward = self.get_reward()  # TODO use reward
-        reward = 0
-
-        done = self.is_doen()
-
-        return obs, reward, done, {}
+        obs, reward, done, info = self.vtk_env.step(q)
+        self.episode_reward += reward
+        return obs, reward, done, info
 
 
 env = BulletEnv()
 env.reset()
 action = env.action_space.sample()
 env.step(action)
-x = env._p.addUserDebugParameter("x", -pi, pi, 0)
-y = env._p.addUserDebugParameter("y", -pi, pi, 0)
-z = env._p.addUserDebugParameter("z", -pi, pi, 0)
+x = env._p.addUserDebugParameter("x", -1, 1, 0)
+y = env._p.addUserDebugParameter("y", -1, 1, 0)
+z = env._p.addUserDebugParameter("z", -1, 1, 0)
 while True:
-    for _ in range(100):
-        x1 = env._p.readUserDebugParameter(x)
-        y1 = env._p.readUserDebugParameter(y)
-        z1 = env._p.readUserDebugParameter(z)
-        action = env.action_space.sample()
-        # env.step([x1, y1, z1])
-        env.step([1, 1, 1])
-        # print('\r', env.robot.get_obs(), end='', flush=True)
-    env.reset()
+    x1 = env._p.readUserDebugParameter(x)
+    y1 = env._p.readUserDebugParameter(y)
+    z1 = env._p.readUserDebugParameter(z)
+    action = env.action_space.sample()
+    env.step([x1, y1, z1])
+    # print(env.robot.sensor.measure())
