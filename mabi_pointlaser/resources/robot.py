@@ -1,9 +1,11 @@
-import pybullet
-import gym, gym.spaces, gym.utils
-import numpy as np
-from math import pi
+import os
 import time
-from scipy.spatial.transform import Rotation as R
+import gym
+import gym.spaces
+import gym.utils
+import numpy as np
+import pybullet
+from math import sqrt
 
 MAX_DISTANCE = 100
 EULER_RANGE = np.array([np.pi, np.pi / 2, np.pi])
@@ -12,14 +14,8 @@ class Robot:
     """
     Base class for mujoco .xml based agents.
     """
-
-    def __init__(self, bullet_client, add_ignored_joints=False, base_position=None, base_orientation=None,
-                 fixed_base=1):
+    def __init__(self, bullet_client):
         self._p = bullet_client
-
-        #  Not needed?
-        # self.robot_body = None
-        self.add_ignored_joints = add_ignored_joints
 
         # Define action space
         self.action_space = gym.spaces.box.Box(
@@ -27,26 +23,21 @@ class Robot:
             high=np.array([1, 1, 1]))
 
         # Robot set-up information
-        self.model_urdf = "C:/Users/nilsk/Projects/MabiPointLaserEnv/mabi_pointlaser/resources" \
-                          "/mabi_urdf/mabi.urdf"  # TODO use os and path
-        self.basePosition = base_position if base_position is not None else [0, 0, 0]
-        self.baseOrientation = base_orientation if base_orientation is not None else [0, 0, 0, 1]
-        self.fixed_base = fixed_base
-
-        self.ordered_joints = []
+        path = os.path.dirname(__file__)
+        self.model_urdf = path + '/mabi_urdf/mabi.urdf'
         self.robotID = self._p.loadURDF(self.model_urdf,
-                                        basePosition=self.basePosition,
-                                        baseOrientation=self.baseOrientation,
-                                        useFixedBase=self.fixed_base,
+                                        basePosition=[0, 0, 0],
+                                        baseOrientation=[0, 0, 0, 1],
+                                        useFixedBase=1,
                                         flags=pybullet.URDF_USE_SELF_COLLISION | pybullet.URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS)  # TODO what is URDF_USE_SELF_COLLISION_EXCLUDE_ALL_PARENTS?
 
+        # Cataloguing and init all parts and joints
         self.parts = dict()
         self.jdict = dict()
         self.ordered_joints = list()
-
-        for j in range(self._p.getNumJoints(self.robotID)):  # iterate over all joints of the robot
+        for j in range(self._p.getNumJoints(self.robotID)):
             self._p.setJointMotorControl2(self.robotID, j, pybullet.POSITION_CONTROL, positionGain=0.1,
-                                          velocityGain=0.1, force=0)  # TODO What is setJointMotorControl2()?
+                                          velocityGain=0.1, force=0)
             joint_info = self._p.getJointInfo(self.robotID, j)
             joint_name = joint_info[1].decode("utf8")
             part_name = joint_info[12].decode("utf8")
@@ -54,22 +45,11 @@ class Robot:
             # Generate body part object
             self.parts[part_name] = BodyPart(self._p, part_name, self.robotID, j)
 
-            if joint_name[:6] == "ignore":
-                ignored_joint = Joint(self._p, joint_name, self.robotID, j)
-                ignored_joint.disable_motor()
-                if self.add_ignored_joints:
-                    self.jdict[joint_name] = ignored_joint
-                    self.ordered_joints.append(ignored_joint)
-                    self.jdict[joint_name].power_coef = 0.0
-                continue
-
             if joint_name[:8] != "jointfix":
                 self.jdict[joint_name] = Joint(self._p, joint_name, self.robotID, j)
                 self.ordered_joints.append(self.jdict[joint_name])
 
-                self.jdict[joint_name].power_coef = 100.0
-
-        # parts
+        # Parts
         self.shoulder = self.parts["SHOULDER"]
         self.arm = self.parts["ARM"]
         self.elbow = self.parts["ELBOW"]
@@ -85,7 +65,7 @@ class Robot:
         self.receiver_y = self.parts["receiver_y"]
         self.receiver_z = self.parts["receiver_z"]
 
-        # joints
+        # Joints
         self.shoulder_rot_joint = self.jdict["SH_ROT"]
         self.shoulder_fle_joint = self.jdict["SH_FLE"]
         self.elbow_fle_joint = self.jdict["EL_FLE"]
@@ -95,31 +75,46 @@ class Robot:
         self.laser_x = self.jdict["laser_x"]
         self.laser_y = self.jdict["laser_y"]
         self.laser_z = self.jdict["laser_z"]
+        self.flex_joints = [self.shoulder_rot_joint.ID, self.shoulder_fle_joint.ID, self.elbow_fle_joint.ID,
+                            self.elbow_rot_joint.ID, self.wrist_fle_joint.ID, self.wrist_rot_joint.ID]
 
+        # Laser-Senor
+        self.sensor = Sensor(self._p, self.robotID, self.transmitter.ID, self.receiver_x.ID, self.receiver_y.ID,
+                             self.receiver_z.ID)
+        # Placeholders
         self.endEffectorPosition = None
         self.endEffectorOrientation = None
         self.joint_states = None
         self.target_pos = None
         self.target_q = None
 
-        self.flex_joints = [self.shoulder_rot_joint.ID, self.shoulder_fle_joint.ID, self.elbow_fle_joint.ID,
-                            self.elbow_rot_joint.ID, self.wrist_fle_joint.ID, self.wrist_rot_joint.ID]
-
-        self.sensor = Sensor(self._p, self.robotID, self.transmitter.ID, self.receiver_x.ID, self.receiver_y.ID,
-                             self.receiver_z.ID)
-
     def reset(self, pos=None, q=None):
+        '''
+        Bring the robot end_effector in target pose
+        :param pos: target end-effector starting position
+        :param q: target end-effector starting orientation
+        :return: starting state (correct, actual_q, joint_states)
+        '''
         self.target_pos = pos if pos is not None else [1, 0, 1]
         q = q if q is not None else [0, 0, 0]
         self.eef_to_target(q)
         return self.get_state()
 
     def apply_action(self, a):
-        assert (np.isfinite(a).all())
+        '''
+        Simulate action on robot. (1) Check if action is possible. (2) Get actually reached orientation. (3) Get joint
+        states of the robot arm.
+        :param a: orientation in normalise euler angels 3*[-1, 1]
+        :return: current state (correct, actual_q, joint_states)
+        '''
         self.eef_to_target(a)
         return self.get_state()
 
     def eef_to_target(self, q):
+        '''
+        Move robot arme to target pose. Try to keep target_position and reach target_orientation.
+        :param q: orientation in normalise euler angels 3*[-1, 1]
+        '''
         euler = q * EULER_RANGE
         print(euler[1])
         self.target_q = self._p.getQuaternionFromEuler([euler[0], euler[1], euler[2]])
@@ -133,17 +128,32 @@ class Robot:
         self.step_simulation()
 
     def get_state(self):
-        end_effector_pos = self.transmitter.get_position()
-        q = self._p.getEulerFromQuaternion(self.end.get_orientation())
+        '''
+        Get state of the robotic arm. (1) Check if action is possible (deviate nor more than threshold from the target
+        position and do not take measurement against owen arm.). (2) Get actually reached orientation. (3) Get joint
+        states of the robot arm.
+        :return: current state (correct, actual_q, joint_states)
+        '''
+        # self-measurement
         measure_successful = self.sensor.measure_successful()
-        target = np.array(self.target_pos)
-        mse = ((end_effector_pos - target) ** 2).mean()
-        pos_correct = False
-        if mse < 0.05:
-            pos_correct = True
-        return all(measure_successful) and pos_correct, q, self.joint_states
 
-    def step_simulation(self, t_steps=100, sleep=0):
+        # kept position
+        t = self.target_pos
+        c = self.transmitter.get_position()
+        dev = sqrt((t[0] - c[0])**2 + (t[1] - c[0])**2 + (t[2] - c[0])**2)
+        pos_correct = False
+        if dev < 0.05:
+            pos_correct = True
+
+        # correct (no self-measurement and kept position)
+        correct = all(measure_successful) and pos_correct
+
+        # actual end-effector orientation
+        q = self._p.getEulerFromQuaternion(self.end.get_orientation())
+
+        return correct, q, self.joint_states
+
+    def step_simulation(self, t_steps=100, sleep=0):  # TODO Check if problem can be solved in setPhysicsEngineParameter
         for _ in range(t_steps):
             self._p.stepSimulation()
             time.sleep(sleep)
@@ -206,7 +216,7 @@ class Joint:
             vel *= 0.1
         else:
             vel *= 0.5
-        return (pos, vel)
+        return pos, vel
 
     def get_state(self):
         x, vx, _, _ = self._p.getJointState(self.robotID, self.ID)
@@ -219,10 +229,6 @@ class Joint:
     def get_orientation(self):
         _, r = self.get_state()
         return r
-
-    def get_velocity(self):
-        _, vx = self.get_state()
-        return vx
 
 
 class Sensor:
