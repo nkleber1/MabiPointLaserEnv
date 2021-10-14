@@ -1,10 +1,12 @@
 import pybullet
 import gym, gym.spaces, gym.utils
 import numpy as np
-from math import pi, sqrt
+from math import pi
+import time
+from scipy.spatial.transform import Rotation as R
 
 MAX_DISTANCE = 100
-
+EULER_RANGE = np.array([np.pi, np.pi / 2, np.pi])
 
 class Robot:
     """
@@ -19,13 +21,10 @@ class Robot:
         # self.robot_body = None
         self.add_ignored_joints = add_ignored_joints
 
-        # Define action and observation spac
+        # Define action space
         self.action_space = gym.spaces.box.Box(
-            low=np.array([-pi, -pi, -pi]),
-            high=np.array([pi, pi, pi]))
-        self.observation_space = gym.spaces.box.Box(
-            low=np.array([0, 0, 0]),
-            high=np.array([MAX_DISTANCE, MAX_DISTANCE, MAX_DISTANCE]))
+            low=np.array([-1, -1, -1]),
+            high=np.array([1, 1, 1]))
 
         # Robot set-up information
         self.model_urdf = "C:/Users/nilsk/Projects/MabiPointLaserEnv/mabi_pointlaser/resources" \
@@ -100,7 +99,8 @@ class Robot:
         self.endEffectorPosition = None
         self.endEffectorOrientation = None
         self.joint_states = None
-        self.endEffectorTargetOrientation = None
+        self.target_pos = None
+        self.target_q = None
 
         self.flex_joints = [self.shoulder_rot_joint.ID, self.shoulder_fle_joint.ID, self.elbow_fle_joint.ID,
                             self.elbow_rot_joint.ID, self.wrist_fle_joint.ID, self.wrist_rot_joint.ID]
@@ -108,45 +108,51 @@ class Robot:
         self.sensor = Sensor(self._p, self.robotID, self.transmitter.ID, self.receiver_x.ID, self.receiver_y.ID,
                              self.receiver_z.ID)
 
-    def reset(self, end_effector_position=None, end_effector_orientation=None):
-        self.endEffectorTargetPosition = end_effector_position if end_effector_position is not None else [1, 0, 1]
-        o = end_effector_orientation if end_effector_orientation is not None else [0, 0, 0]
-        self.endEffectorTargetOrientation = self._p.getQuaternionFromEuler([o[0], o[1], o[2]])
-        self.joint_states = self._p.calculateInverseKinematics(self.robotID, self.end.ID,
-                                                               targetOrientation=self.endEffectorTargetOrientation,
-                                                               targetPosition=self.endEffectorTargetPosition,
-                                                               residualThreshold=0.0000001, maxNumIterations=1000)
-
-        pybullet.setJointMotorControlArray(self.robotID, self.flex_joints, pybullet.POSITION_CONTROL,
-                                           targetPositions=self.joint_states)
-
-        # get observation
-        s = self.get_state()  # optimization: calc_state() can calculate something in self.* for calc_potential() to use
-
-        return s
+    def reset(self, pos=None, q=None):
+        self.target_pos = pos if pos is not None else [1, 0, 1]
+        q = q if q is not None else [0, 0, 0]
+        self.eef_to_target(q)
+        return self.get_state()
 
     def apply_action(self, a):
         assert (np.isfinite(a).all())
-        self.endEffectorTargetOrientation = self._p.getQuaternionFromEuler([a[0], a[1], a[2]])
-        self.joint_states = self._p.calculateInverseKinematics(self.robotID, self.end.ID,
-                                                               targetOrientation=self.endEffectorTargetOrientation,
-                                                               targetPosition=self.endEffectorTargetPosition,
+        self.eef_to_target(a)
+        return self.get_state()
+
+    def eef_to_target(self, q):
+        euler = q * EULER_RANGE
+        print(euler[1])
+        self.target_q = self._p.getQuaternionFromEuler([euler[0], euler[1], euler[2]])
+        self.joint_states = self._p.calculateInverseKinematics(self.robotID, self.transmitter.ID,
+                                                               targetOrientation=self.target_q,
+                                                               targetPosition=self.target_pos,
                                                                residualThreshold=0.000001,
                                                                maxNumIterations=1000000)
         pybullet.setJointMotorControlArray(self.robotID, self.flex_joints, pybullet.POSITION_CONTROL,
                                            targetPositions=self.joint_states)
-        # TODO Deal with not equal config
+        self.step_simulation()
 
     def get_state(self):
         end_effector_pos = self.transmitter.get_position()
-        end_effector_orientation = self._p.getEulerFromQuaternion(self.end.get_orientation())
+        q = self._p.getEulerFromQuaternion(self.end.get_orientation())
         measure_successful = self.sensor.measure_successful()
-        target = np.array(self.endEffectorTargetPosition)
+        target = np.array(self.target_pos)
         mse = ((end_effector_pos - target) ** 2).mean()
         pos_correct = False
-        if mse < 0.02:
+        if mse < 0.05:
             pos_correct = True
-        return pos_correct, end_effector_orientation, measure_successful, self.joint_states
+        return all(measure_successful) and pos_correct, q, self.joint_states
+
+    def step_simulation(self, t_steps=100, sleep=0):
+        for _ in range(t_steps):
+            self._p.stepSimulation()
+            time.sleep(sleep)
+
+    def sample_pose(self):
+        # TODO actually sample
+        pos = [1, 0, 1]
+        q = [0, 0, 0]
+        return {'x': pos, 'q': q}
 
 
 class BodyPart:
@@ -157,8 +163,8 @@ class BodyPart:
         self.ID = body_part_id
 
     def get_pose(self):
-        position, orientation, _, _, _, _ = self._p.getLinkState(self.robotID, self.ID)
-        return [position, orientation]
+        pos, q, _, _, _, _ = self._p.getLinkState(self.robotID, self.ID)
+        return [pos, q]
 
     def get_position(self):
         return np.array(self.get_pose()[0])
@@ -218,35 +224,6 @@ class Joint:
         _, vx = self.get_state()
         return vx
 
-    def set_position(self, position):
-        self._p.setJointMotorControl2(self.robotID, self.ID, pybullet.POSITION_CONTROL,
-                                      targetPosition=position)
-
-    def set_velocity(self, velocity):
-        self._p.setJointMotorControl2(self.robotID, self.ID, pybullet.VELOCITY_CONTROL,
-                                      targetVelocity=velocity)
-
-    def set_motor_torque(self, torque):  # just some synonym method
-        self.set_torque(torque)
-
-    def set_torque(self, torque):
-        self._p.setJointMotorControl2(bodyIndex=self.robotID, jointIndex=self.ID,
-                                      controlMode=pybullet.TORQUE_CONTROL,
-                                      force=torque)  # , positionGain=0.1, velocityGain=0.1)
-
-    def reset_current_position(self, position, velocity):  # just some synonym method
-        self.reset_position(position, velocity)
-
-    def reset_position(self, position, velocity):
-        self._p.resetJointState(self.robotID, self.ID, targetValue=position,
-                                targetVelocity=velocity)
-        self.disable_motor()
-
-    def disable_motor(self):
-        self._p.setJointMotorControl2(self.robotID, self.ID,
-                                      controlMode=pybullet.POSITION_CONTROL, targetPosition=0, targetVelocity=0,
-                                      positionGain=0.1, velocityGain=0.1, force=0)
-
 
 class Sensor:
     def __init__(self, bullet_client, robot_id, transmitter_id, receiver_x_id, receiver_y_id, receiver_z_id):
@@ -280,3 +257,54 @@ class Sensor:
         y_collision = self._measure_successful(self.receiver_y_id)
         z_collision = self._measure_successful(self.receiver_z_id)
         return [x_collision, y_collision, z_collision]
+
+
+# class Lasers:
+#     def __init__(self, bullet_client):
+#         args = Config().get_arguments()
+#         self._p = bullet_client
+#
+#         if args.num_lasers == 1:
+#             # Single pointlaser along X axis
+#             self._directions = np.array([[1, 0, 0]]).T
+#         elif args.num_lasers == 2:
+#             # Two lasers along X, Y axes
+#             self._directions = np.array([[1, 0, 0], [0, 1, 0]]).T
+#         else:
+#             # Three lasers along X, Y, Z axes
+#             self._directions = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]]).T
+#
+#         # Number of lasers
+#         self.num = self._directions.shape[1]
+#         # Range
+#         self.range = 10  # (m)
+#         # Measurement noise
+#         self.sigma = 20.  # (mm)
+#         # Initialize at origin
+#         self._x = np.zeros(3)
+#
+#     def relative_endpoints(self, q):
+#         '''
+#         Get endpoints of laser rays based on given laser array orientation.
+#         '''
+#         rotation_matrix = q.as_matrix()
+#         endpoints = self.range * np.dot(rotation_matrix, self._directions)
+#         print('relative_endpoints', endpoints)
+#         return endpoints
+#
+#     def update(self, pose, mesh):
+#         '''
+#         Cast laser rays from the given sensor array pose and return points of intersection.
+#         Note: Returns point at max laser_range if no intersection is found.
+#         '''
+#         # Get endpoints of line segment along pointlaser direction
+#         epoints = pose['x'][:, None] + self.relative_endpoints(pose['q'])
+#         distance = np.zeros(self.num)
+#         # Perform intersections for each laser
+#         for i in range(self.num):
+#             # intersections[:, i] = mesh.intersect(pose['x'], epoints[:, i])
+#             distance[i] = self._p.rayTest(pose['x'], epoints[:, i])[0][2] * self.range
+#         # Store a copy of current position
+#         np.copyto(self._x, pose['x'])
+#         return distance  # np.linalg.norm(intersections - pose['x'][:, None], axis=0)
+#
