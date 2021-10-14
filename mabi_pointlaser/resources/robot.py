@@ -6,16 +6,26 @@ import gym.utils
 import numpy as np
 import pybullet
 from math import sqrt
+import pybullet
+import pybullet_data
+from pybullet_utils import bullet_client
 
 MAX_DISTANCE = 100
 EULER_RANGE = np.array([np.pi, np.pi / 2, np.pi])
+
 
 class Robot:
     """
     Base class for mujoco .xml based agents.
     """
-    def __init__(self, bullet_client):
-        self._p = bullet_client
+    def __init__(self, args, render=True):
+        self.args = args
+
+        # init bullet client
+        self.physicsClientId = -1
+        self._p = None
+        self.isRender = render  # TODO move to args
+        self.setup_client()
 
         # Define action space
         self.action_space = gym.spaces.box.Box(
@@ -95,6 +105,11 @@ class Robot:
         :param q: target end-effector starting orientation
         :return: starting state (correct, actual_q, joint_states)
         '''
+        # Connect to Bullet-Client (if no client is connected)
+        if self.physicsClientId < 0:
+            self.setup_client()
+
+        # move end_effector to target
         self.target_pos = pos if pos is not None else [1, 0, 1]
         q = q if q is not None else [0, 0, 0]
         self.eef_to_target(q)
@@ -163,6 +178,33 @@ class Robot:
         pos = [1, 0, 1]
         q = [0, 0, 0]
         return {'x': pos, 'q': q}
+
+    def setup_client(self):
+        '''
+        Set up BulletClient, Gravity, Plane  and setts PhysicsEngineParameter and debugging features.
+        '''
+        if self.isRender:
+            self._p = bullet_client.BulletClient(connection_mode=pybullet.GUI)
+        else:
+            self._p = bullet_client.BulletClient()
+        self.physicsClientId = self._p._client
+        self._p.configureDebugVisualizer(pybullet.COV_ENABLE_GUI, 0)
+        self._p.setAdditionalSearchPath(pybullet_data.getDataPath())
+        self._p.setGravity(0, 0, -9.81)
+        self._p.loadURDF("plane.urdf")
+        self._p.setDefaultContactERP(0.9)
+        self._p.setPhysicsEngineParameter(fixedTimeStep=self.args.time_step * self.args.frame_skip,
+                                          numSolverIterations=self.args.num_solver_iterations,
+                                          numSubSteps=self.args.frame_skip)
+
+    def close(self):
+        '''
+        Disconnect client
+        '''
+        if self.physicsClientId >= 0:
+            if self.physicsClientId >= 0:
+                self._p.disconnect()
+        self.physicsClientId = -1
 
 
 class BodyPart:
@@ -313,4 +355,3 @@ class Sensor:
 #         # Store a copy of current position
 #         np.copyto(self._x, pose['x'])
 #         return distance  # np.linalg.norm(intersections - pose['x'][:, None], axis=0)
-#
