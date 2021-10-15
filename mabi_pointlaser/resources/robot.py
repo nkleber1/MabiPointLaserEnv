@@ -166,8 +166,8 @@ class Robot:
 
         return correct, q, self.joint_states
 
-    def step_simulation(self, ):
-        for _ in range(self.args.n_steps):
+    def step_simulation(self):
+        for _ in range(self.args.n_step):
             self._p.stepSimulation()
             time.sleep(self.args.sleep)
 
