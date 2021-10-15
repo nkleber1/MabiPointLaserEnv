@@ -248,13 +248,6 @@ class Joint:
         self.jointHasLimits = self.lowerLimit < self.upperLimit
         self.jointMaxVelocity = joint_info[11]
 
-    # TODO delete unused methods!
-    def set_state(self, x, vx):
-        self._p.resetJointState(self.robotID, self.ID, x, vx)
-
-    def current_position(self):  # just some synonym method
-        return self.get_state()
-
     def current_relative_position(self):
         pos, vel = self.get_state()
         if self.jointHasLimits:
