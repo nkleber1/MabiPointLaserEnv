@@ -12,22 +12,23 @@ from gym.utils import seeding
 from scipy.spatial.transform import Rotation
 from sklearn.neighbors import KDTree
 # Relative Imports
-from sim_env.bayes_filter import CustomBayesFilter
-from sim_env.lasers import Lasers
-from sim_env.measurement import LaserMeasurements
-from sim_env.mesh import Mesh
-from sim_env.belief import PositionBelief
-from sim_env.utils import cov2corr
-from sim_env.renderer import Renderer
-from sim_env.local_info import get_local_info, correct_rotations_m1, local_info_robot
+from vtk_pointlaser.bayes_filter import CustomBayesFilter
+from vtk_pointlaser.lasers import Lasers
+from vtk_pointlaser.measurement import LaserMeasurements
+from vtk_pointlaser.mesh import Mesh
+from vtk_pointlaser.belief import PositionBelief
+from vtk_pointlaser.utils import cov2corr
+from vtk_pointlaser.renderer import Renderer
+from vtk_pointlaser.local_info import get_local_info, correct_rotations_m1, local_info_robot
 
 # Absolute range of XYZ euler angles
 EULER_RANGE = np.array([np.pi, np.pi / 2, np.pi])
 
 # To ignore 'Box bound precision' Warning
-gym.logger.set_level(40)
+gym.logger.set_level(40)  # TODO Whats that?
 
-class RandomizedPointlaserEnv(gym.Env):
+
+class RandomizedPointlaserEnv():
     def __init__(self, args):
         # Configuration arguments
         self.args = args
@@ -41,7 +42,7 @@ class RandomizedPointlaserEnv(gym.Env):
         self._pose_gt = {}
         self._q = Rotation.from_euler('xyz', np.zeros(3))
         # Initialize Measurements class
-        self._meas = LaserMeasurements(self._lasers.num)
+        self._measurements = LaserMeasurements(self._lasers.num)
         # Initialize Filter update class
         self._bayes_filter = CustomBayesFilter(self._lasers)
         # Maximum standard devitation
@@ -54,19 +55,19 @@ class RandomizedPointlaserEnv(gym.Env):
 
         # Numerical range of observations:
         # [Normalized XYZ postion, Standard Deviations, Correlations, Observations, Map Encoding, map_height]
-        low  = np.array([0, 0, 0, -1, -1, -1])
+        low = np.array([0, 0, 0, -1, -1, -1])
         high = np.array([np.inf, np.inf, np.inf, +1, +1, +1,])
         if args.use_mean_pos:
-            low  = np.hstack((low, np.zeros(3)))
+            low = np.hstack((low, np.zeros(3)))
             high = np.hstack((high, np.ones(3)))
         if args.use_measurements:
-            low  = np.hstack((low, -np.ones(args.num_lasers*4)))
+            low = np.hstack((low, -np.ones(args.num_lasers*4)))
             high = np.hstack((high, np.ones(args.num_lasers*4)))
         if args.use_map_encodings:
-            low  = np.hstack((low, -np.inf*np.ones(args.vae_latent_dims)))
+            low = np.hstack((low, -np.inf*np.ones(args.vae_latent_dims)))
             high = np.hstack((high, np.inf*np.ones(args.vae_latent_dims)))
         if args.use_map_height:
-            low  = np.hstack((low, np.zeros(1)))
+            low = np.hstack((low, np.zeros(1)))
             high = np.hstack((high, np.inf*np.ones(1)))
         self.observation_space = spaces.Box(low=low, high=high, dtype=np.float)
 
@@ -83,7 +84,7 @@ class RandomizedPointlaserEnv(gym.Env):
         self.maxaxis_per_eps = []
         self.gt_dist = []
         # Seed RNG
-        self.seed()
+        self.np_random = None
 
     def _normalize_position(self, xyz):
         '''
@@ -206,7 +207,7 @@ class RandomizedPointlaserEnv(gym.Env):
         self._q = rot
         self._pose_gt['q'] = rot
         # Take measurement from new orientation
-        z = self._meas.update(self._lasers, self._pose_gt, self._mesh)
+        z = self._measurements.update(self._lasers, self._pose_gt, self._mesh)
         z_norm = self._normalize_measurement(z)
         # Update belief
         self._bayes_filter.measurement_update(self._xbel, self._q, z)
@@ -222,13 +223,17 @@ class RandomizedPointlaserEnv(gym.Env):
 
         return obs, reward, done, info
 
-    def reset(self):
+    def reset(self, h, q):
         '''
         Reset environment to start a new episode.
+        :param h: height of the sensor (from pyBullet Simulation)
+        :param q: starting orientation of the sensor (from pyBullet Simulation)
+        :return: obs
         '''
+        # TODO use h to give position a height
         self._current_step = 0
         # Reset VTK measurement visualization
-        self._meas.reset()
+        self._measurements.reset()
 
         # Import new mesh
         num_meshes = len(os.listdir(os.path.join(self.args.dataset_dir, self.args.mesh_dir)))
@@ -240,6 +245,7 @@ class RandomizedPointlaserEnv(gym.Env):
 
         # Sample position
         pos = self._mesh.sample_position(*self._mesh_offset)
+        pos[2] = h
         # Reset belief
         self._xbel.mean = pos
         # Initial diagonal covariance matrix
@@ -252,8 +258,8 @@ class RandomizedPointlaserEnv(gym.Env):
         self._pose_gt['x'] = self._xbel.sample()
         self._prev_dist = np.linalg.norm(self._xbel.mean-self._pose_gt['x'])
         # Reset orientation of lasers
-        self._pose_gt['q'] = Rotation.from_euler('xyz', np.zeros(3))
-        self._q = Rotation.from_euler('xyz', np.zeros(3))
+        self._pose_gt['q'] = Rotation.from_euler('xyz', q)
+        self._q = Rotation.from_euler('xyz', q)
         # Get observation from belief
         obs = self._get_observation()
         if self.args.use_measurements: obs = np.hstack((obs, np.zeros(self.args.num_lasers)))
@@ -270,21 +276,18 @@ class RandomizedPointlaserEnv(gym.Env):
         if reset == True:
             self._mesh.renderer = renderer
             self._xbel.renderer = renderer
-            self._meas.renderer = renderer
+            self._measurements.renderer = renderer
         renderer.render()
 
     def get_map(self):
         return self._mesh._map
 
-    def seed(self, seed=None):
-        self.np_random, seed = seeding.np_random(seed)
-        return [seed]
-
     # modified functions for verification run on M1
-    def reset_verification(self):
+    def reset_verification(self, h, q):
         self._current_step = 0
-        self._meas.reset()
+        self._measurements.reset()
         pos = self._mesh.sample_position_verification(*self._mesh_offset)
+        pos[2] = h
 
         # get pre-defined correct rotations
         _, rotations = correct_rotations_m1(pos)
@@ -295,8 +298,8 @@ class RandomizedPointlaserEnv(gym.Env):
         self._prev_uncertainty = self._xbel.uncertainty('det')
         self._pose_gt['x'] = self._xbel.sample()
         # Reset orientation of lasers
-        self._pose_gt['q'] = Rotation.from_euler('xyz', np.zeros(3))
-        self._q = Rotation.from_euler('xyz', np.zeros(3))
+        self._pose_gt['q'] = Rotation.from_euler('xyz', q)
+        self._q = Rotation.from_euler('xyz', q)
         obs = self._get_observation()
         return obs, rotations
 
@@ -306,7 +309,7 @@ class RandomizedPointlaserEnv(gym.Env):
         rot = self._action2rot(action)
         self._q = rot
         self._pose_gt['q'] = rot
-        z = self._meas.update(self._lasers, self._pose_gt, self._mesh)
+        z = self._measurements.update(self._lasers, self._pose_gt, self._mesh)
         self._bayes_filter.measurement_update(self._xbel, self._q, z)
         reward = self._get_reward()
         obs = self._get_observation()
@@ -315,9 +318,9 @@ class RandomizedPointlaserEnv(gym.Env):
         return np.hstack((obs, self._normalize_measurement(z))), reward, done
 
     # modified function for experiments on real robot
-    def reset_robot(self, pos, cov=50):
+    def reset_robot(self, pos, q, cov=50):
         self._current_step = 0
-        self._meas.reset()
+        self._measurements.reset()
         self._max_stddev = cov
         self._xbel.cov = np.eye(3) * self._max_stddev ** 2
         self._xbel.mean = pos * self.args.rescale  # rescale position coordinates to match mesh in simulation
@@ -332,8 +335,8 @@ class RandomizedPointlaserEnv(gym.Env):
         # Sample a fixed ground truth position
         self._pose_gt['x'] = self._xbel.sample()
         # Reset orientation of lasers
-        self._pose_gt['q'] = Rotation.from_euler('xyz', np.zeros(3))
-        self._q = Rotation.from_euler('xyz', np.zeros(3))
+        self._pose_gt['q'] = Rotation.from_euler('xyz', q)
+        self._q = Rotation.from_euler('xyz', q)
         # Get observation from belief
         obs = self._get_observation()
 
