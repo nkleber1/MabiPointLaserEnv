@@ -57,7 +57,8 @@ class BulletEnv(gym.Env):
             correct, q, joint_states = self.robot.reset(pose['x'], pose['q'])
 
             if correct:
-                obs = self.vtk_env.reset(pose['x'][2], q)
+                h_mm = pose['x'][2]
+                obs = self.vtk_env.reset(h_mm, q)
                 return obs
 
     def close(self):
