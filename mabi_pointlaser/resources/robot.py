@@ -166,10 +166,10 @@ class Robot:
 
         return correct, q, self.joint_states
 
-    def step_simulation(self, t_steps=100, sleep=0):  # TODO Check if problem can be solved in setPhysicsEngineParameter
-        for _ in range(t_steps):
+    def step_simulation(self, ):
+        for _ in range(self.args.n_steps):
             self._p.stepSimulation()
-            time.sleep(sleep)
+            time.sleep(self.args.sleep)
 
     def sample_pose(self):
         # TODO actually sample
@@ -302,7 +302,6 @@ class Sensor:
         return self._p.rayTest(pos_transmitter, pos_receiver)[0][0] != self.robotID
 
     def measure_successful(self):
-        # TODO How to deal with successful measurements? A) Error B) Distance from self measurements
         x_collision = self._measure_successful(self.receiver_x_id)
         y_collision = self._measure_successful(self.receiver_y_id)
         z_collision = self._measure_successful(self.receiver_z_id)
