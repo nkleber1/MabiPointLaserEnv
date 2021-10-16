@@ -198,10 +198,9 @@ class RandomizedPointlaserEnv():
     def step(self, action):
         # Increment count
         self._current_step += 1
-        # Clip out of range actions
-        action = np.clip(action, self.action_space.low, self.action_space.high)
         # Transform to discrete action and rotation
-        rot, action_disc = self._transform_action(action)
+        # rot, action_disc = self._transform_action(action)
+        rot = Rotation.from_euler('xyz', action)
         # Convert to scipy Rotation object
         #rot = self._action2rot(action)
         self._q = rot
@@ -219,7 +218,7 @@ class RandomizedPointlaserEnv():
         if self.args.use_map_height: obs = np.hstack((obs, self._curr_mesh_h))
         self.curr_obs = np.hstack((obs,z_norm.squeeze(),self._curr_map_encoding,self._curr_mesh_h))
         done = self._is_done()
-        info = {"action_disc": action_disc}
+        info = {"action": action}
 
         return obs, reward, done, info
 
@@ -230,7 +229,6 @@ class RandomizedPointlaserEnv():
         :param q: starting orientation of the sensor (from pyBullet Simulation)
         :return: obs
         '''
-        # TODO use h to give position a height
         self._current_step = 0
         # Reset VTK measurement visualization
         self._measurements.reset()
@@ -245,6 +243,7 @@ class RandomizedPointlaserEnv():
 
         # Sample position
         pos = self._mesh.sample_position(*self._mesh_offset)
+        # us height from pyBullet
         pos[2] = h
         # Reset belief
         self._xbel.mean = pos
