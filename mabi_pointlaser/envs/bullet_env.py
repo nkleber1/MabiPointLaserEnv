@@ -2,6 +2,7 @@ import gym, gym.spaces, gym.utils, gym.utils.seeding
 from vtk_pointlaser.config import Config
 from vtk_pointlaser import RandomizedPointlaserEnv
 from mabi_pointlaser.resources.robot import Robot
+import numpy as np
 
 
 class BulletEnv(gym.Env):
@@ -10,6 +11,7 @@ class BulletEnv(gym.Env):
 	These environments create single-player scenes and behave like normal Gym environments, if
 	you don't use multiplayer.
 	"""
+
     def __init__(self, render=True):
         # get args
         self.args = Config().get_arguments()
@@ -30,7 +32,7 @@ class BulletEnv(gym.Env):
         self.seed(self.args.seed)
 
         # episode history
-        self.episode_steps = 0
+        self._current_step = 0
         self.episode_reward = 0
 
     def seed(self, seed=None):
@@ -48,7 +50,7 @@ class BulletEnv(gym.Env):
         :return: first obs (by vtk env)
         '''
         # Set Episode info to zero
-        self.episode_steps = 0
+        self._current_step = 0
         self.episode_reward = 0
 
         # sample new robot pose and apply if possible.
@@ -73,8 +75,13 @@ class BulletEnv(gym.Env):
         :param a: action 3*[-1, 1] (new orientation in normed euler angels)
         :return: obs, reward, done, info by vtk_env (or punishment if action is impossible)
         '''
-        self.episode_steps += 1
+        # Increment count
+        self._current_step += 1
+        # Clip out of range actions
+        a = np.clip(a, self.action_space.low, self.action_space.high)
+
         correct, q, joint_states = self.robot.apply_action(a)
+
         if not correct:
             return None, self.args.incorrect_pose_punishment, True, {}
 
@@ -90,4 +97,3 @@ env.robot.add_debug_parameter()
 while True:
     x, y, z = env.robot.get_debug_parameter()
     env.step([x, y, z])
-
