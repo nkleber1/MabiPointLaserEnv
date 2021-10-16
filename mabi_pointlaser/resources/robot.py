@@ -8,6 +8,7 @@ from math import sqrt
 import pybullet
 import pybullet_data
 from pybullet_utils import bullet_client
+from scipy.spatial.transform import Rotation as R
 
 MAX_DISTANCE = 100
 EULER_RANGE = np.array([np.pi, np.pi / 2, np.pi])
@@ -90,6 +91,7 @@ class Robot:
         # Laser-Senor
         self.sensor = Sensor(self._p, self.robotID, self.transmitter.ID, self.receiver_x.ID, self.receiver_y.ID,
                              self.receiver_z.ID)
+        # self.lasers = Lasers(self._p, self.args)
         # Placeholders
         self.endEffectorPosition = None
         self.endEffectorOrientation = None
@@ -148,7 +150,8 @@ class Robot:
         :return: current state (correct, actual_q, joint_states)
         '''
         # self-measurement
-        measure_successful = self.sensor.measure_successful()
+        measure_successful = self.sensor.measure_successful
+        curr_q = self.wrist_2.get_orientation()
 
         # kept position
         t = self.target_pos
@@ -162,9 +165,9 @@ class Robot:
         correct = all(measure_successful) and pos_correct
 
         # actual end-effector orientation
-        q = self._p.getEulerFromQuaternion(self.end.get_orientation())
+        curr_q = self._p.getEulerFromQuaternion(curr_q)
 
-        return correct, q, self.joint_states
+        return correct, curr_q, self.joint_states
 
     def step_simulation(self):
         for _ in range(self.args.n_step):
@@ -296,11 +299,23 @@ class Sensor:
         z_distance = self._measure(self.receiver_z_id)
         return [x_distance, y_distance, z_distance]
 
+    def _get_relative_endpoint(self, receiver):
+        pos_transmitter = np.array(self._p.getLinkState(self.robotID, self.transmitterID)[0])
+        pos_receiver = np.array(self._p.getLinkState(self.robotID, receiver)[0])
+        return pos_receiver - pos_transmitter
+
+    def get_relative_endpoints(self):
+        relative_endpoint_x = self._get_relative_endpoint(self.receiver_x_id)
+        relative_endpoint_y = self._get_relative_endpoint(self.receiver_y_id)
+        relative_endpoint_z = self._get_relative_endpoint(self.receiver_z_id)
+        return relative_endpoint_x, relative_endpoint_y, relative_endpoint_z
+
     def _measure_successful(self, receiver):
         pos_transmitter = self._p.getLinkState(self.robotID, self.transmitterID)[0]
         pos_receiver = self._p.getLinkState(self.robotID, receiver)[0]
         return self._p.rayTest(pos_transmitter, pos_receiver)[0][0] != self.robotID
 
+    @property
     def measure_successful(self):
         x_collision = self._measure_successful(self.receiver_x_id)
         y_collision = self._measure_successful(self.receiver_y_id)
@@ -309,10 +324,8 @@ class Sensor:
 
 
 # class Lasers:
-#     def __init__(self, bullet_client):
-#         args = Config().get_arguments()
+#     def __init__(self, bullet_client, args):
 #         self._p = bullet_client
-#
 #         if args.num_lasers == 1:
 #             # Single pointlaser along X axis
 #             self._directions = np.array([[1, 0, 0]]).T
@@ -321,14 +334,11 @@ class Sensor:
 #             self._directions = np.array([[1, 0, 0], [0, 1, 0]]).T
 #         else:
 #             # Three lasers along X, Y, Z axes
-#             self._directions = np.array([[0, 0, -1], [-1, 0, 0], [0, 1, 0]]).T
-#
+#             self._directions = np.array([[0, 0, -1], [0, -1, 0], [1, 0, 0]])
 #         # Number of lasers
 #         self.num = self._directions.shape[1]
 #         # Range
-#         self.range = 10  # (m)
-#         # Measurement noise
-#         self.sigma = 20.  # (mm)
+#         self.range = 5  # (m)
 #         # Initialize at origin
 #         self._x = np.zeros(3)
 #
@@ -336,10 +346,10 @@ class Sensor:
 #         '''
 #         Get endpoints of laser rays based on given laser array orientation.
 #         '''
+#         q = R.from_quat(q)
 #         rotation_matrix = q.as_matrix()
 #         endpoints = self.range * np.dot(rotation_matrix, self._directions)
-#         print('relative_endpoints', endpoints)
-#         return endpoints
+#         return endpoints.T
 #
 #     def update(self, pose, mesh):
 #         '''
