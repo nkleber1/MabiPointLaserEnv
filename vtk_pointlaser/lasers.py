@@ -25,7 +25,7 @@ self._directions = np.array(
 
 
 import numpy as np
-from config import Config
+from vtk_pointlaser.config import Config
 
 
 class Lasers:
@@ -40,7 +40,7 @@ class Lasers:
             self._directions = np.array([[1, 0, 0], [0, 1, 0]]).T
         else:
             # Three lasers along X, Y, Z axes
-            self._directions = np.array([[1, 0, 0], [0, 1, 0], [0, 0, 1]]).T
+            self._directions = np.array([[0, 0, -1], [0, -1, 0], [1, 0, 0]])
 
         # Number of lasers
         self.num = self._directions.shape[1]
@@ -55,7 +55,7 @@ class Lasers:
         '''
         rotation_matrix = q.as_matrix()
         endpoints = self.range * np.dot(rotation_matrix, self._directions)
-        return endpoints
+        return endpoints.T  # TODO Check if .T let to error in other calculations
 
     def direction(self, q, step):
         '''
@@ -67,7 +67,7 @@ class Lasers:
             self._directions = np.array([[1, 0, 0]]).T
             return self._directions
         else:
-            rotation_matrix = q.as_dcm()
+            rotation_matrix = q.as_matrix()
             self._directions = np.dot(rotation_matrix, self._directions)
             self._directions = self._directions / np.linalg.norm(self._directions)
             return self._directions
