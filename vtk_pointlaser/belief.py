@@ -13,6 +13,8 @@ class PositionBelief:
     def __init__(self, mu=np.zeros(3), sigma=np.eye(3), renderer=None):
         # Setup rendering
         self.renderer = renderer
+        self._ellipsoid = None
+        self._uncertainty_str = None
         # Initialize parameters
         self.mean = mu
         self.cov = sigma
