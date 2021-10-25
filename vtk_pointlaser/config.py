@@ -27,7 +27,7 @@ class Config(object):
         # Mesh Environment
         parser.add_argument('--mesh_file', type=str, default='r_map', help='mesh file name')
         parser.add_argument('--mesh_nr', type=int, default=1, help='Mesh file number')
-        parser.add_argument('--dataset_dir', type=str, default='../../meshes/train_data', help='Mesh environment directory')
+        parser.add_argument('--dataset_dir', type=str, default='./meshes/train_data', help='Mesh environment directory')
         parser.add_argument('--mesh_dir', type=str, default='meshes', help='Mesh environment directory')
         parser.add_argument('--num_lasers', type=int, default=3, help='Number of lasers to use. 1, 2 or 3 possible')
         parser.add_argument('--rescale', type=int, default=400, help='Mesh rescale factor')
@@ -71,11 +71,12 @@ class Config(object):
         parser.add_argument('--ppo', type=int, default=0, help='To use PPO instead of TRPO. 0 means False') #unused
         parser.add_argument('--ppo_clip', type=float, default=0.15, help='Clipping bounds of PPO loss, corresponds to KL Div.') #unused
 
-        # State params
+        # Obs params
         parser.add_argument('--use_mean_pos', type=int, default=1, help='Use Mean Position estimate in the state space')
         parser.add_argument('--use_measurements', type=int, default=1, help='Use Laser Measurements in the state space')
         parser.add_argument('--use_map_encodings', type=int, default=1, help='Use map_encodings in the state space')
         parser.add_argument('--use_map_height', type=int, default=1, help='Use map height in the state space')
+        parser.add_argument('--use_joint_states', type=int, default=1, help='Use joint states in the state space')
 
         # Reward params
         parser.add_argument('--rew_alpha', type=float, default=1, help='Final reward weight for max eigen value reduction')
@@ -92,9 +93,12 @@ class Config(object):
 
         # PyBullet params
         parser.add_argument('--seed', type=int, default=None, help='Set random seed')
-        parser.add_argument('--time_step', type=float, default=0.0020, help='Set pyBullet time_step')
+        parser.add_argument('--n_step', type=int, default=100, help='# of steps performed to reach target position')
+        parser.add_argument('--sleep', type=float, default=0, help='sec sleep between each step (for debugging')
+        parser.add_argument('--time_step', type=float, default=0.002, help='Set pyBullet time_step')
         parser.add_argument('--frame_skip', type=int, default=5, help='Set pyBullet frame_skip')
         parser.add_argument('--num_solver_iterations', type=int, default=5, help='Set pyBullet num_solver_iterations')
+        parser.add_argument('--renderRobot', type=bool, default=False, help='Use connection_mode=pybullet.GUI')
 
         self.args = parser.parse_args()
 
