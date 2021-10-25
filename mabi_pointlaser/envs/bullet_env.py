@@ -1,4 +1,6 @@
 import gym, gym.spaces, gym.utils, gym.utils.seeding
+from gym import spaces
+from math import pi
 from vtk_pointlaser.config import Config
 from vtk_pointlaser import RandomizedPointlaserEnv
 from mabi_pointlaser.resources.robot import Robot
@@ -25,7 +27,14 @@ class BulletEnv(gym.Env):
 
         # make vtk
         self.vtk_env = RandomizedPointlaserEnv(self.args)
-        self.observation_space = self.vtk_env.observation_space
+        low = self.vtk_env.observation_space_low
+        high = self.vtk_env.observation_space_high
+        if self.args.use_joint_states:
+            n_joints = len(self.robot.flex_joints)
+            low = np.hstack((low, -2*pi*np.zeros(n_joints)))
+            high = np.hstack((high, 2*pi*np.zeros(n_joints)))
+        self.observation_space = spaces.Box(low=low, high=high, dtype=np.float)
+
 
         # same seed for robot, bullet_env and vtk_env
         self.np_random = None
@@ -56,11 +65,13 @@ class BulletEnv(gym.Env):
         # sample new robot pose and apply if possible.
         while True:
             pose = self.robot.sample_pose()
-            correct, q, joint_states = self.robot.reset(pose['x'], pose['q'])
+            correct, pos_noise, q, joint_states = self.robot.reset(pose['x'], pose['q'])
 
             if correct:
                 h_mm = pose['x'][2]
                 obs = self.vtk_env.reset(h_mm, q)
+                if self.args.use_joint_states:
+                    obs = np.append(obs, joint_states)
                 return obs
 
     def close(self):
@@ -80,20 +91,10 @@ class BulletEnv(gym.Env):
         # Clip out of range actions
         a = np.clip(a, self.action_space.low, self.action_space.high)
 
-        correct, q, joint_states = self.robot.apply_action(a)
-
-        if not correct:
-            return None, self.args.incorrect_pose_punishment, True, {}
-
-        obs, reward, done, info = self.vtk_env.step(q)
+        correct, pos_noise, q, joint_states = self.robot.apply_action(a)
+        obs, reward, done, info = self.vtk_env.step(q, pos_noise)
         self.episode_reward += reward
+        if self.args.use_joint_states:
+            obs = np.append(obs, joint_states)
         return obs, reward, done, info
 
-
-env = BulletEnv()
-env.reset()
-env.robot.add_debug_parameter()
-
-while True:
-    x, y, z = env.robot.get_debug_parameter()
-    env.step([x, y, z])

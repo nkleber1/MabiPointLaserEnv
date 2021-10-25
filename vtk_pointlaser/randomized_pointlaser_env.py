@@ -69,7 +69,8 @@ class RandomizedPointlaserEnv():
         if args.use_map_height:
             low = np.hstack((low, np.zeros(1)))
             high = np.hstack((high, np.inf*np.ones(1)))
-        self.observation_space = spaces.Box(low=low, high=high, dtype=np.float)
+        self.observation_space_low = low
+        self.observation_space_high = high
 
         # Numerical range of actions:
         # Normalized rotation
@@ -195,7 +196,7 @@ class RandomizedPointlaserEnv():
         euler = action_disc * EULER_RANGE
         return Rotation.from_euler('xyz', euler), action_disc
 
-    def step(self, action):
+    def step(self, action, pos_noise=None):
         # Increment count
         self._current_step += 1
         # Transform to discrete action and rotation
@@ -205,8 +206,12 @@ class RandomizedPointlaserEnv():
         #rot = self._action2rot(action)
         self._q = rot
         self._pose_gt['q'] = rot
+        # add noise to self._pose_gt['q']
+        pose = self._pose_gt
+        if pos_noise is not None:
+            pose['x'] += pos_noise
         # Take measurement from new orientation
-        z = self._measurements.update(self._lasers, self._pose_gt, self._mesh)
+        z = self._measurements.update(self._lasers, pose, self._mesh)
         z_norm = self._normalize_measurement(z)
         # Update belief
         self._bayes_filter.measurement_update(self._xbel, self._q, z)
@@ -244,7 +249,7 @@ class RandomizedPointlaserEnv():
         # Sample position
         pos = self._mesh.sample_position(*self._mesh_offset)
         # us height from pyBullet
-        pos[2] = h
+        pos[2] = h * 1000  # m to mm
         # Reset belief
         self._xbel.mean = pos
         # Initial diagonal covariance matrix

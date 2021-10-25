@@ -156,18 +156,15 @@ class Robot:
         # kept position
         t = self.target_pos
         c = self.transmitter.get_position()
-        dev = sqrt((t[0] - c[0])**2 + (t[1] - c[1])**2 + (t[2] - c[2])**2)
-        pos_correct = False
-        if dev < 0.05:
-            pos_correct = True
+        pos_noise = c - t
 
-        # correct (no self-measurement and kept position)
-        correct = all(measure_successful) and pos_correct
+        # correct (no self-measurement)
+        correct = all(measure_successful)
 
         # actual end-effector orientation
         curr_q = self._p.getEulerFromQuaternion(curr_q)
 
-        return correct, curr_q, self.joint_states
+        return correct, pos_noise, curr_q, self.joint_states
 
     def step_simulation(self):
         for _ in range(self.args.n_step):
