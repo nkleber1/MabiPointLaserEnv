@@ -173,8 +173,8 @@ class Robot:
 
     def sample_pose(self):
         # TODO actually sample
-        pos = [0.7, 0, 1.3]
-        q = [0, 0, 0]
+        pos = [0.6, 0, 1.2]
+        q = np.random.uniform(-1, 1, 3)
         return {'x': pos, 'q': q}
 
     def setup_client(self):
