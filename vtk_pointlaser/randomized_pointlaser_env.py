@@ -207,9 +207,9 @@ class RandomizedPointlaserEnv():
         self._q = rot
         self._pose_gt['q'] = rot
         # add noise to self._pose_gt['q']
-        pose = self._pose_gt
+        # pose = self._pose_gt  # TODO change gt instead since the true position of the robotic arm is changing.
         if pos_noise is not None:
-            pose['x'] += pos_noise
+            self._pose_gt['x'] += pos_noise
         # Take measurement from new orientation
         z = self._measurements.update(self._lasers, pose, self._mesh)
         z_norm = self._normalize_measurement(z)
