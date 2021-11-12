@@ -7,14 +7,16 @@ import numpy as np
 import cv2 as cv
 import vtk
 from stl import mesh
-from sim_env.local_info import get_local_info, correct_rotations_m1
+from vtk_pointlaser.local_info import get_local_info, correct_rotations_m1
 #from vtk.util.numpy_support import vtk_to_numpy
 
 class Mesh:
     def __init__(self, mesh_nr, args, raycast_tol=1, renderer=None):
+        self.args = args
+
         # Load mesh
         mesh_file = os.path.join(args.dataset_dir, args.mesh_dir, args.mesh_file + str(mesh_nr) + '.stl')
-        #mesh_file, mesh, scale = transform(mesh_file=mesh_file)  # uncomment if rescaling of mesh needed
+        # mesh, mesh_file, scale = self.transform(mesh_file=mesh_file)
         self._mesh = self.load_stl(mesh_file)
         # Load map
         map_file = os.path.join(args.dataset_dir, args.encodings_dir, args.encodings_dir + "_" + str(args.vae_latent_dims), args.mesh_file + str(mesh_nr) + '.npy')
@@ -118,23 +120,15 @@ class Mesh:
             if (dmin < -signed_dist < dmax) and region > 0:
                 return position
 
+    def transform(self, mesh_file):
+        mesh_env = mesh.Mesh.from_file(mesh_file)
+        data = mesh_env.data
 
-def transform(mesh_file):
-    mesh_env = mesh.Mesh.from_file(mesh_file)
-    data = mesh_env.data
-    range = np.max(data['vectors'])-np.min(data['vectors'])
-
-    if range < 5000:  # user set range of dimension
-        args.rescale = 400  # rescale factor, can be changed depending on mesh dimensions
-        data['normals'] *= args.rescale
-        data['vectors'] *= args.rescale
-        data['attr'] *= args.rescale
+        data['normals'] *= self.args.rescale
+        data['vectors'] *= self.args.rescale
+        data['attr'] *= self.args.rescale
         transformed_mesh = mesh.Mesh(data)
-        mesh_path = os.path.join(args.mesh_dir, args.mesh_file + '_rescaled' + args.mesh_nr + '.stl')
+        mesh_path = os.path.join(self.args.dataset_dir, self.args.mesh_file + '_rescaled' + str(self.args.mesh_nr) + '.stl')
         transformed_mesh.save(mesh_path)
-    else:  # just in case the mesh is already large enough
-        args.rescale = 1
-        transformed_mesh = mesh.Mesh(data)
-        mesh_path = mesh_file
 
-    return transformed_mesh, mesh_path, args.rescale
+        return transformed_mesh, mesh_path, self.args.rescale
