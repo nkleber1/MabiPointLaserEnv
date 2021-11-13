@@ -30,7 +30,7 @@ class Fold_Decoder(nn.Module):
         )
 
     def build_grid(self, batch_size):
-        n_points = self.args.points
+        n_points = self.args.num_points
         if self.args.shape == '1d':
             points = np.linspace(0, 1, n_points)
             points = points[np.newaxis, ...]
