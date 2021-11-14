@@ -80,9 +80,7 @@ class Reconstruction(object):
 
         # generate dataset  # TODO use better dataset
         self.train_dataset = PointCloudDataset(args.dataset)
-        test_data = np.load(
-            'C:/Users/nilsk/Projects/MabiPointLaserEnv/meshes/train_data/point_clouds/2500_point_clouds_360_norm.npy')[44]
-        self.test_data = torch.from_numpy(test_data[np.newaxis, ...]).float()
+        self.test_data = self.train_dataset.test
 
         # self.train_dataset = Dataset(
         #     root=args.dataset_root,

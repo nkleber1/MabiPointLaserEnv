@@ -48,7 +48,7 @@ class Fold_Decoder(nn.Module):
                 y.append(cos)
             points = np.array([x, y])
         elif self.args.shape == 'square':
-            n_points = n_points / 4
+            n_points = int(n_points / 4)
             x = np.linspace(0, 1, n_points + 2)
             x = x[1:n_points+1]
             x0 = np.zeros(n_points)

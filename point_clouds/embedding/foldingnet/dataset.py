@@ -136,13 +136,18 @@ class Dataset(data.Dataset):
 class PointCloudDataset(Dataset):
     def __init__(self, dataset):
         if dataset == 'lidar':
-            file = '../../../meshes/train_data/point_clouds/lidar.npy'
+            file = '../../../meshes/train_data/point_clouds/lidar_512.npy'
         elif dataset == 'uniform_density':
-            pass
+            file = '../../../meshes/train_data/point_clouds/uniform_density_1024.npy'
         elif dataset == 'regular_distances':
             pass
         np_data = np.load(file)
         self.data = torch.from_numpy(np_data)
+        if dataset == 'lidar':
+            self.test = torch.unsqueeze(self.data[44], 0)
+        else:
+            self.test = torch.unsqueeze(self.data[9], 0)
+        self.test.float()
         self.n_clouds = np_data.shape[0]
         self.n_points = np_data.shape[1]
         self.point_dim = np_data.shape[2]
