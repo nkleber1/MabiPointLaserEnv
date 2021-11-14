@@ -16,8 +16,20 @@ from .loss import ChamferLoss
 class ReconstructionNet(nn.Module):
     def __init__(self, args):
         super(ReconstructionNet, self).__init__()
-        self.encoder = Graph_Encoder(args)
-        self.decoder = Fold_Decoder(args)
+        if args.encoder == 'graph':
+            self.encoder = Graph_Encoder(args)
+        elif args.encoder == 'pointnet++':
+            pass
+        elif args.encoder == 'pointnet':
+            pass
+        elif args.encoder == 'dense':
+            pass
+        if args.decoder == 'fold':
+            self.decoder = Fold_Decoder(args)
+        elif args.decoder == 'upsampling':
+            pass
+        elif args.decoder == 'dense':
+            pass
         self.loss = ChamferLoss()
 
     def forward(self, input):

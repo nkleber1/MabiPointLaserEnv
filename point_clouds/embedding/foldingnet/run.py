@@ -13,31 +13,36 @@ from point_clouds.embedding.foldingnet.reconstruction import Reconstruction
 
 def get_parser():
     parser = argparse.ArgumentParser(description='Unsupervised Point Cloud Feature Learning')
-    parser.add_argument('--exp_name', type=str, default='T', metavar='N',
+    parser.add_argument('--exp_name', type=str, default='graph_1d_fold_uniform_k16', metavar='N',
                         help='Name of the experiment')
+    parser.add_argument('--encoder', type=str, default='graph', metavar='N',
+                        choices=['graph', 'pointnet++', 'pointnet', 'dense'],
+                        help='Encoder architecture used, [graph, pointnet++, pointnet, dense]')
+    parser.add_argument('--decoder', type=str, default='fold', metavar='N',
+                        choices=['fold', 'upsampling', 'dense'],
+                        help='Decoder architecture used, [fold, upsampling, dense]')
     parser.add_argument('--dropout', type=float, default=0.2,
                         help='dropout rate')
-    parser.add_argument('--num_points', type=int, default=512,
+    parser.add_argument('--num_points', type=int, default=1024,
                         help='Num of points to use')
     parser.add_argument('--feat_dims', type=int, default=128, metavar='N',
                         help='Number of dims for feature ')
-    parser.add_argument('--k', type=int, default=6, metavar='N',
+    parser.add_argument('--k', type=int, default=16, metavar='N',
                         help='Num of nearest neighbors to use for KNN')
     parser.add_argument('--batch_size', type=int, default=64, metavar='batch_size',
                         help='Size of batch)')
     parser.add_argument('--epochs', type=int, default=1024, metavar='N',
                         help='Number of episode to train ')
     parser.add_argument('--snapshot_interval', type=int, default=10, metavar='N',
-                        help='Save snapshot interval ')
+                        help='Save snapshot interval')
     parser.add_argument('--shape', type=str, default='1d', metavar='N',
                         choices=['1d', 'diagonal', 'circle', 'square', 'gaussian'],
                         help='Shape of points to input decoder, [1d, diagonal, circle, square, gaussian]')
     parser.add_argument('--eval', action='store_true',
                         help='Evaluate the model')
-    parser.add_argument('--model_path', type=str, default='',  # 'C:/Users/nilsk/Projects/MabiPointLaserEnv/point_clouds/embedding/foldingnet/snapshot//Reconstruct_1d\models/shapenetcorev2_70.pkl',
+    parser.add_argument('--model_path', type=str, default='',  # 'C:/Users/nilsk/Projects/MabiPointLaserEnv/point_clouds/embedding/foldingnet/snapshot/Reconstruct_T\plot/lidar_340.png',
                         metavar='N', help='Path to load model')
-    # TODO make dataset selectable
-    parser.add_argument('--dataset', type=str, default='lidar', metavar='N',
+    parser.add_argument('--dataset', type=str, default='uniform_density', metavar='N',
                         choices=['lidar', 'uniform_density', 'regular_distances'],
                         help='Encoder to use, [lidar, uniform_density, regular_distances]')
     # parser.add_argument('--use_rotate', action='store_true',
