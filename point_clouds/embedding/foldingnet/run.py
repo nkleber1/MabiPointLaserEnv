@@ -22,8 +22,8 @@ def get_parser():
                         choices=['fold', 'upsampling', 'dense'],
                         help='Decoder architecture used, [fold, upsampling, dense]')
     parser.add_argument('--dropout', type=float, default=0.2,
-                        help='dropout rate')
-    parser.add_argument('--num_points', type=int, default=1024,
+                        help='dropout rate')  # TODO Wo?
+    parser.add_argument('--num_points', type=int, default=1024,  # TODO automatic
                         help='Num of points to use')
     parser.add_argument('--feat_dims', type=int, default=128, metavar='N',
                         help='Number of dims for feature ')
@@ -31,16 +31,19 @@ def get_parser():
                         help='Num of nearest neighbors to use for KNN')
     parser.add_argument('--batch_size', type=int, default=64, metavar='batch_size',
                         help='Size of batch)')
-    parser.add_argument('--epochs', type=int, default=1024, metavar='N',
+    parser.add_argument('--epochs', type=int, default=10240, metavar='N',
                         help='Number of episode to train ')
     parser.add_argument('--snapshot_interval', type=int, default=10, metavar='N',
                         help='Save snapshot interval')
     parser.add_argument('--shape', type=str, default='1d', metavar='N',
                         choices=['1d', 'diagonal', 'circle', 'square', 'gaussian'],
                         help='Shape of points to input decoder, [1d, diagonal, circle, square, gaussian]')
+    parser.add_argument('--pooling', type=str, default='avg', metavar='N',
+                        choices=['avg', 'max'],
+                        help='Pooling type used for PointNet, [avg, max]')
     parser.add_argument('--eval', action='store_true',
                         help='Evaluate the model')
-    parser.add_argument('--model_path', type=str, default='',  # 'C:/Users/nilsk/Projects/MabiPointLaserEnv/point_clouds/embedding/foldingnet/snapshot/Reconstruct_T\plot/lidar_340.png',
+    parser.add_argument('--model_path', type=str, default='C:/Users/nilsk/Projects/MabiPointLaserEnv/point_clouds/embedding/foldingnet/snapshot/Reconstruct_graph_1d_fold_uniform_k16\models/uniform_density_1030.pkl',
                         metavar='N', help='Path to load model')
     parser.add_argument('--dataset', type=str, default='uniform_density', metavar='N',
                         choices=['lidar', 'uniform_density', 'regular_distances'],
