@@ -1,9 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-import numpy as np
-import math
-from .loss import ChamferLoss
 
 
 def knn(x, k):
@@ -58,9 +55,9 @@ def local_maxpool(x, idx):
     return x
 
 
-class Graph_Encoder(nn.Module):
+class GraphEncoder(nn.Module):
     def __init__(self, args):
-        super(Graph_Encoder, self).__init__()
+        super(GraphEncoder, self).__init__()
         if args.k == None:
             self.k = 16
         else:

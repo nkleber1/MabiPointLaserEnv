@@ -5,9 +5,9 @@ import math
 # TODO Make usable for all 1D, 2D, and 3D
 
 
-class Fold_Decoder(nn.Module):
+class FoldDecoder(nn.Module):
     def __init__(self, args):
-        super(Fold_Decoder, self).__init__()
+        super(FoldDecoder, self).__init__()
         self.m = args.num_points  # 360  # TODO change if 3D  --> 2025  # 45 * 45.
         self.args = args
         if args.shape == '1d':
