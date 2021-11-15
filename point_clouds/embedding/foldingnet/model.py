@@ -8,7 +8,7 @@
 """
 
 import torch.nn as nn
-from . import Graph_Encoder, Fold_Decoder
+from . import GraphEncoder, PointNet2Encoder, Fold_Decoder
 from .loss import ChamferLoss
 # TODO Make encoder/decoder model selectable
 
@@ -17,9 +17,9 @@ class ReconstructionNet(nn.Module):
     def __init__(self, args):
         super(ReconstructionNet, self).__init__()
         if args.encoder == 'graph':
-            self.encoder = Graph_Encoder(args)
+            self.encoder = GraphEncoder(args)
         elif args.encoder == 'pointnet++':
-            pass
+            self.encoder = PointNet2Encoder(args)
         elif args.encoder == 'pointnet':
             pass
         elif args.encoder == 'dense':
