@@ -259,9 +259,9 @@ class PointNetSetAbstractionMsg(nn.Module):
 class PointNet2Encoder(nn.Module):
     def __init__(self, args):
         super(PointNet2Encoder, self).__init__()
-        n_points = args.num_points  # TODO unify what is meant by n_Points
+        # TODO unify what is meant by n_Points
         # We use half the size of the original since we do not have enough RAM!
-        self.sa1 = PointNetSetAbstractionMsg(npoint=n_points, radius_list=[0.1, 0.2, 0.4], nsample_list=[16, 32, 128],
+        self.sa1 = PointNetSetAbstractionMsg(npoint=args.num_points, radius_list=[0.1, 0.2, 0.4], nsample_list=[16, 32, 128],
                                              in_channel=0, mlp_list=[[16, 16, 32], [32, 32, 64], [32, 48, 64]])
         self.sa2 = PointNetSetAbstractionMsg(npoint=128, radius_list=[0.2, 0.4, 0.8], nsample_list=[32, 64, 128],
                                              in_channel=160, mlp_list=[[32, 32, 64], [64, 64, 128], [64, 64, 128]])
