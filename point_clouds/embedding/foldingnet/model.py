@@ -8,7 +8,7 @@
 """
 
 import torch.nn as nn
-from . import GraphEncoder, PointNet2Encoder, PointNetEncoder, DenseEncoder, FoldDecoder
+from . import GraphEncoder, PointNet2Encoder, PointNetEncoder, DenseEncoder, FoldDecoder, DenseDecoder
 from .loss import ChamferLoss
 # TODO Make encoder/decoder model selectable
 
@@ -29,7 +29,7 @@ class ReconstructionNet(nn.Module):
         elif args.decoder == 'upsampling':
             pass
         elif args.decoder == 'dense':
-            pass
+            self.decoder = DenseDecoder(args)
         self.loss = ChamferLoss()
 
     def forward(self, input):
