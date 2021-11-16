@@ -24,6 +24,7 @@ from .utils import Logger
 
 class Reconstruction(object):
     def __init__(self, args):
+        self.args = args
         self.dataset_name = args.dataset
         self.epochs = args.epochs
         self.batch_size = args.batch_size
@@ -119,6 +120,7 @@ class Reconstruction(object):
     def run(self):
         self.train_hist = {
             'loss': [],
+            'loss_per_point': [],
             'per_epoch_time': [],
             'total_time': []
         }
@@ -145,6 +147,7 @@ class Reconstruction(object):
             # save tensorboard
             if self.writer:
                 self.writer.add_scalar('Train Loss', self.train_hist['loss'][-1], epoch)
+                self.writer.add_scalar('Train Loss (per point)', self.train_hist['loss_per_point'][-1], epoch)
                 self.writer.add_scalar('Learning Rate', self._get_lr(), epoch)
 
         # finish all epoch
@@ -160,6 +163,7 @@ class Reconstruction(object):
     def train_epoch(self, epoch):
         epoch_start_time = time.time()
         loss_buf = []
+        loss_per_point_buf = []
         num_batch = int(len(self.train_loader.dataset) / self.batch_size)
         for iter, pts in enumerate(self.train_loader):  # for iter, (pts, _) in enumerate(self.train_loader):
             if not self.no_cuda:
@@ -179,12 +183,14 @@ class Reconstruction(object):
             loss.backward()
             self.optimizer.step()
             loss_buf.append(loss.detach().cpu().numpy())
+            loss_per_point_buf.append(loss.detach().cpu().numpy()/self.args.num_points/self.args.batch_size)
 
         # finish one epoch
         epoch_time = time.time() - epoch_start_time
         self.train_hist['per_epoch_time'].append(epoch_time)
         self.train_hist['loss'].append(np.mean(loss_buf))
-        print(f'Epoch {epoch + 1}: Loss {np.mean(loss_buf)}, time {epoch_time:.4f}s')
+        self.train_hist['loss_per_point'].append(np.mean(loss_per_point_buf))
+        print(f'Epoch {epoch + 1}: Loss {np.mean(loss_per_point_buf)}, time {epoch_time:.4f}s')
         return np.mean(loss_buf)
 
     def _snapshot(self, epoch):
