@@ -8,7 +8,7 @@ import matplotlib.pyplot as plt
 from stl import mesh
 from vtk_pointlaser.local_info import get_local_info, correct_rotations_m1
 
-num_meshes = len(os.listdir('C:/Users/nilsk/Projects/MabiPointLaserEnv/meshes/train_data/meshes/'))
+num_meshes = len(os.listdir('/meshes/train_data/meshes/'))
 num_positions = 10
 num_points = 512
 tol = 1  # ray cast tolerance

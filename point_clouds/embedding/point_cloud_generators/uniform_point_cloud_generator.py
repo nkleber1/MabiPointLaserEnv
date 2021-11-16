@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import os
 
-num_meshes = len(os.listdir('C:/Users/nilsk/Projects/MabiPointLaserEnv/meshes/train_data/meshes/'))
+num_meshes = len(os.listdir('/meshes/train_data/meshes/'))
 num_positions = 10
 num_points = 2048
 
@@ -37,7 +37,7 @@ for i in range(1, num_meshes+1):
     else:
         dataset = np.concatenate([dataset, pts], axis=0)
 print(dataset.shape)
-np.save('../meshes/train_data/point_clouds/uniform_density_2048.npy', dataset)
+np.save('../../../meshes/train_data/point_clouds/uniform_density_2048.npy', dataset)
 
 
 

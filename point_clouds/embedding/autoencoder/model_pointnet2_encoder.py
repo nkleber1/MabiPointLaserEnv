@@ -5,7 +5,7 @@ import torch.nn as nn
 import torch.nn.functional as F
 from time import time
 
-from point_clouds.embedding.foldingnet.dataset import PointCloudDataset
+from point_clouds.embedding.autoencoder.dataset import PointCloudDataset
 
 
 def square_distance(src, dst):
