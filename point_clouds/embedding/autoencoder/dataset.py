@@ -33,7 +33,7 @@ def jitter_pointcloud(pointcloud, sigma=0.01, clip=0.02):
 def rotate_pointcloud(pointcloud):
     theta = np.pi * 2 * np.random.choice(24) / 24
     rotation_matrix = np.array([[np.cos(theta), -np.sin(theta)], [np.sin(theta), np.cos(theta)]])
-    pointcloud[:, [0, 2]] = pointcloud[:, [0, 2]].dot(rotation_matrix)  # random rotation (x,z)
+    pointcloud[:, [0,1]] = pointcloud[:, [0,1]].dot(rotation_matrix)  # random rotation (x,z)
     return pointcloud
 
 
@@ -155,7 +155,7 @@ class PointCloudDataset(Dataset):
         self.rotate = args.rotate
 
     def __getitem__(self, index):
-        point_set = self.data[index][:self.num_points].float()
+        point_set = self.data[index][:self.n_points].float()
         if self.rotate:
             point_set = rotate_pointcloud(point_set)
         return point_set
