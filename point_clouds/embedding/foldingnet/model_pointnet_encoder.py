@@ -22,7 +22,7 @@ class PointNetEncoder(nn.Module):
 
         if args.pooling == 'avg':
             self.pooling = nn.AvgPool1d(args.num_points)
-        elif args.pooling == 'max':
+        if args.pooling == 'max':
             self.pooling = nn.MaxPool1d(args.num_points)
 
         # batch norm
@@ -57,12 +57,9 @@ class PointNetEncoder(nn.Module):
 #                         help='Pooling type used, [avg, max]')
 #     args = parser.parse_args()
 #     return args
-#
-#
 # args = get_parser()
 # data = PointCloudDataset('uniform_density')[:5]
 # print(data.shape)
 # encoder = PointNetEncoder(args)
 # feat = encoder(data)
 # print(feat.shape)
-
