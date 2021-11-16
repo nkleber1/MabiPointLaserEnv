@@ -79,7 +79,7 @@ class Reconstruction(object):
         self.first_gpu = self.gpu_ids[0]
 
         # generate dataset  # TODO use better dataset
-        self.train_dataset = PointCloudDataset(args.dataset)
+        self.train_dataset = PointCloudDataset(args)
         self.test_data = self.train_dataset.test
 
         # self.train_dataset = Dataset(

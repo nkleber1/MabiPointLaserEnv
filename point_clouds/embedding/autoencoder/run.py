@@ -43,11 +43,13 @@ def get_parser():
                         help='Pooling type used for PointNet, [avg, max]')
     parser.add_argument('--eval', action='store_true',
                         help='Evaluate the model')
-    parser.add_argument('--model_path', type=str, default='C:/Users/nilsk/Projects/MabiPointLaserEnv/point_clouds/embedding/foldingnet/snapshot/Reconstruct_graph_1d_fold_uniform_k16\models/uniform_density_1460.pkl',
+    parser.add_argument('--model_path', type=str, default='C:/Users/nilsk/Projects/MabiPointLaserEnv/point_clouds/embedding/autoencoder/snapshot/Reconstruct_graph_1d_fold_uniform_k16\models/uniform_density_1490.pkl',
                         metavar='N', help='Path to load model')
     parser.add_argument('--dataset', type=str, default='uniform_density', metavar='N',
                         choices=['lidar', 'uniform_density', 'regular_distances'],
                         help='Encoder to use, [lidar, uniform_density, regular_distances]')
+    parser.add_argument('--eval', action='store_true',
+                        help='Evaluate the model')
     # parser.add_argument('--use_rotate', action='store_true',
     #                     help='Rotate the pointcloud before training')
     # parser.add_argument('--use_translate', action='store_true',
