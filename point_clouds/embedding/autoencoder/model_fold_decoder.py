@@ -14,7 +14,7 @@ import math
 class FoldDecoder(nn.Module):
     def __init__(self, args):
         super(FoldDecoder, self).__init__()
-        self.m = args.num_points  # 360  # TODO change if 3D  --> 2025  # 45 * 45.
+        self.m = args.num_points
         self.args = args
         if args.shape == '1d':
             point_dim = 1

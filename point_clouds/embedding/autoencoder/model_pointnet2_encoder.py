@@ -1,6 +1,6 @@
 """
-FoldingNet: Point Cloud Auto-encoder via Deep Grid Deformation
-This code is based on the implementation b Xu Yan from https://github.com/yanx27/Pointnet_Pointnet2_pytorch
+PointNet++: Deep Hierarchical Feature Learning on Point Sets in a Metric Space
+This code is based on the implementation by Xu Yan from https://github.com/yanx27/Pointnet_Pointnet2_pytorch
 @article{Pytorch_Pointnet_Pointnet2,
       Author = {Xu Yan},
       Title = {Pointnet/Pointnet++ Pytorch},
@@ -8,13 +8,9 @@ This code is based on the implementation b Xu Yan from https://github.com/yanx27
       Year = {2019}
 }
 """
-
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from time import time
-
-from point_clouds.embedding.autoencoder.dataset import PointCloudDataset
 
 
 def square_distance(src, dst):
@@ -292,23 +288,5 @@ class PointNet2Encoder(nn.Module):
         x = self.mlp(x)
         feat = x.transpose(2, 1)
         return feat
-
-
-# def get_parser():
-#     parser = argparse.ArgumentParser(description='Unsupervised Point Cloud Feature Learning')
-#     parser.add_argument('--num_points', type=int, default=1024,
-#                         help='Num of points to use')
-#     parser.add_argument('--feat_dims', type=int, default=128, metavar='N',
-#                         help='Number of dims for feature ')
-#     args = parser.parse_args()
-#     return args
-#
-# args = get_parser()
-# data = PointCloudDataset('uniform_density')[:5]
-# print(data.shape)
-#
-# encoder = PointNet2Encoder(args)
-# feat = encoder(data)
-# print(feat.shape)
 
 

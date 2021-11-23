@@ -1,9 +1,9 @@
-import argparse
-
+"""
+PointNet: Deep Learning on Point Sets for 3D Classification and Segmentation
+This code is inspired Fei Xia's implementation (https://github.com/fxia22/pointnet.pytorch)
+"""
 import torch.nn as nn
 import torch.nn.functional as F
-
-from point_clouds.embedding.autoencoder.dataset import PointCloudDataset
 
 
 class PointNetEncoder(nn.Module):
@@ -44,22 +44,3 @@ class PointNetEncoder(nn.Module):
         pts = self.mlp(pts)
         feat = pts.transpose(2, 1)
         return feat
-
-
-# def get_parser():
-#     parser = argparse.ArgumentParser(description='Unsupervised Point Cloud Feature Learning')
-#     parser.add_argument('--num_points', type=int, default=1024,
-#                         help='Num of points to use')
-#     parser.add_argument('--feat_dims', type=int, default=128, metavar='N',
-#                         help='Number of dims for feature ')
-#     parser.add_argument('--pooling', type=str, default='avg', metavar='N',
-#                         choices=['avg', 'max'],
-#                         help='Pooling type used, [avg, max]')
-#     args = parser.parse_args()
-#     return args
-# args = get_parser()
-# data = PointCloudDataset('uniform_density')[:5]
-# print(data.shape)
-# encoder = PointNetEncoder(args)
-# feat = encoder(data)
-# print(feat.shape)
