@@ -1,10 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
 """
-@Author: An Tao
-@Contact: ta19@mails.tsinghua.edu.cn
-@File: reconstruction.py
-@Time: 2020/1/2 10:26 AM
+FoldingNet: Point Cloud Auto-encoder via Deep Grid Deformation
+This code is based on the implementation of An Tao (ta19@mails.tsinghua.edu.cn)
 """
 
 import os
@@ -18,7 +14,7 @@ import matplotlib.pyplot as plt
 
 from tensorboardX import SummaryWriter
 from .model import ReconstructionNet
-from .dataset import Dataset, PointCloudDataset
+from .dataset import PointCloudDataset
 from .utils import Logger
 
 

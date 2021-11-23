@@ -1,3 +1,8 @@
+"""
+FoldingNet: Point Cloud Auto-encoder via Deep Grid Deformation
+This code is based on the implementation of An Tao (ta19@mails.tsinghua.edu.cn)
+"""
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F

@@ -1,16 +1,6 @@
-#!/usr/bin/env python
-# -*- coding: utf-8 -*-
-"""
-@Author: An Tao
-@Contact: ta19@mails.tsinghua.edu.cn
-@File: model.py
-@Time: 2020/3/23 5:39 PM
-"""
-
 import torch.nn as nn
 from . import GraphEncoder, PointNet2Encoder, PointNetEncoder, DenseEncoder, FoldDecoder, DenseDecoder
 from .loss import ChamferLoss
-# TODO Make encoder/decoder model selectable
 
 
 class ReconstructionNet(nn.Module):
@@ -41,6 +31,4 @@ class ReconstructionNet(nn.Module):
         return list(self.encoder.parameters()) + list(self.decoder.parameters())
 
     def get_loss(self, input, output):
-        # input shape  (batch_size, 2048, 3)
-        # output shape (batch_size, 2025, 3)
         return self.loss(input, output)
