@@ -1,4 +1,13 @@
-import argparse
+"""
+FoldingNet: Point Cloud Auto-encoder via Deep Grid Deformation
+This code is based on the implementation b Xu Yan from https://github.com/yanx27/Pointnet_Pointnet2_pytorch
+@article{Pytorch_Pointnet_Pointnet2,
+      Author = {Xu Yan},
+      Title = {Pointnet/Pointnet++ Pytorch},
+      Journal = {https://github.com/yanx27/Pointnet_Pointnet2_pytorch},
+      Year = {2019}
+}
+"""
 
 import torch
 import torch.nn as nn
