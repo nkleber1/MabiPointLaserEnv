@@ -13,9 +13,9 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 from tensorboardX import SummaryWriter
-from .model import ReconstructionNet
-from .dataset import PointCloudDataset
-from .utils import Logger
+from . import ReconstructionNet
+from . import PointCloudDataset
+from . import Logger
 
 
 class Reconstruction(object):

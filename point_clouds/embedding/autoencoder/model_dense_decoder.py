@@ -1,8 +1,5 @@
-import argparse
 import torch.nn as nn
 import torch.nn.functional as F
-from point_clouds.embedding.autoencoder import DenseEncoder
-from point_clouds.embedding.autoencoder.dataset import PointCloudDataset
 
 
 class DenseDecoder(nn.Module):

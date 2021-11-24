@@ -3,7 +3,7 @@ This code is based on the implementation of An Tao (ta19@mails.tsinghua.edu.cn)
 """
 
 import argparse
-from point_clouds.embedding.autoencoder.reconstruction import Reconstruction
+from . import Reconstruction
 
 
 def get_parser():
@@ -38,7 +38,7 @@ def get_parser():
                         help='Pooling type used for PointNet, [avg, max]')
     parser.add_argument('--eval', action='store_true',
                         help='Evaluate the model')
-    parser.add_argument('--model_path', type=str, default='C:/Users/nilsk/Projects/MabiPointLaserEnv/point_clouds/embedding/autoencoder/snapshot/Reconstruct_graph_1d_fold_uniform_k16\models/uniform_density_4210.pkl',
+    parser.add_argument('--model_path', type=str, default='../../../point_clouds/embedding/autoencoder/snapshot/Reconstruct_graph_1d_fold_uniform_k16\models/uniform_density_4210.pkl',
                         metavar='N', help='Path to load model')
     parser.add_argument('--dataset', type=str, default='uniform_density', metavar='N',
                         choices=['lidar', 'uniform_density', 'regular_distances'],
